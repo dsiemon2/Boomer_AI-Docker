@@ -2,6 +2,8 @@
 
 **Voice-first digital assistant for older adults**
 
+**Production Domain:** www.lifestyleproai.com
+
 An AI-powered assistant that helps manage daily life through natural conversation - calendar, medications, contacts, notes, and caregiver coordination.
 
 ## Core Principle
