@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Schedule Interview - AI Recruiting Assistant</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+  <style>
+    .sidebar { min-height: 100vh; background: #1e3a5f; }
+    .sidebar .nav-link { color: rgba(255,255,255,0.8); padding: 0.75rem 1rem; }
+    .sidebar .nav-link:hover, .sidebar .nav-link.active { color: #fff; background: rgba(255,255,255,0.1); }
+    .sidebar .nav-link i { margin-right: 0.5rem; }
+    .main-content { background: #f8f9fa; min-height: 100vh; }
+    .nav-divider { border-top: 1px solid rgba(255,255,255,0.2); margin: 0.5rem 0; }
+    .nav-section { color: rgba(255,255,255,0.5); font-size: 0.75rem; padding: 0.5rem 1rem; text-transform: uppercase; }
+  </style>
+</head>
+<body>
+  <div class="container-fluid">
+    <div class="row">
+      <%- include('_sidebar', { token, active: 'interviews' }) %>
+
+      <main class="col-md-10 ms-sm-auto main-content p-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <h2><i class="bi bi-calendar-plus text-primary me-2"></i>Schedule Interview</h2>
+          <a href="<%= basePath %>/admin/interviews?token=<%= token %>" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Back to Interviews
+          </a>
+        </div>
+
+        <div class="row">
+          <div class="col-md-8">
+            <div class="card">
+              <div class="card-body">
+                <form id="scheduleInterviewForm">
+                  <h5 class="mb-4"><i class="bi bi-person me-2"></i>Candidate Information</h5>
+                  <div class="row mb-3">
+                    <div class="col-md-6">
+                      <label class="form-label">Candidate Name *</label>
+                      <input type="text" class="form-control" name="candidateName" required>
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label">Email *</label>
+                      <input type="email" class="form-control" name="candidateEmail" required>
+                    </div>
+                  </div>
+                  <div class="row mb-4">
+                    <div class="col-md-6">
+                      <label class="form-label">Phone</label>
+                      <input type="tel" class="form-control" name="candidatePhone">
+                    </div>
+                  </div>
+
+                  <hr>
+
+                  <h5 class="mb-4"><i class="bi bi-briefcase me-2"></i>Interview Setup</h5>
+                  <div class="row mb-3">
+                    <div class="col-md-6">
+                      <label class="form-label">Job Role *</label>
+                      <select class="form-select" name="jobRoleId" required>
+                        <option value="">Select a job role...</option>
+                        <% jobRoles.forEach(role => { %>
+                        <option value="<%= role.id %>"><%= role.title %></option>
+                        <% }) %>
+                      </select>
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label">Interview Mode *</label>
+                      <select class="form-select" name="mode" required>
+                        <option value="HYBRID">Hybrid (Manager + AI)</option>
+                        <option value="AI_ONLY">AI Only</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="row mb-4">
+                    <div class="col-md-6">
+                      <label class="form-label">Scheduled Date & Time *</label>
+                      <input type="datetime-local" class="form-control" name="scheduledAt" required>
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label">Duration (minutes)</label>
+                      <select class="form-select" name="duration">
+                        <option value="30">30 minutes</option>
+                        <option value="45">45 minutes</option>
+                        <option value="60" selected>60 minutes</option>
+                        <option value="90">90 minutes</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div class="mb-4" id="managerSection">
+                    <label class="form-label">Assigned Interviewer</label>
+                    <select class="form-select" name="managerId">
+                      <option value="">Select an interviewer...</option>
+                      <% managers.forEach(manager => { %>
+                      <option value="<%= manager.id %>"><%= manager.name %> (<%= manager.email %>)</option>
+                      <% }) %>
+                    </select>
+                    <small class="text-muted">For Hybrid mode, select the manager who will conduct the interview with AI assistance.</small>
+                  </div>
+
+                  <div class="mb-4">
+                    <label class="form-label">Notes</label>
+                    <textarea class="form-control" name="notes" rows="3" placeholder="Any additional notes about this interview..."></textarea>
+                  </div>
+
+                  <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">
+                      <i class="bi bi-calendar-check"></i> Schedule Interview
+                    </button>
+                    <a href="<%= basePath %>/admin/interviews?token=<%= token %>" class="btn btn-outline-secondary">Cancel</a>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-md-4">
+            <div class="card">
+              <div class="card-header bg-light">
+                <h6 class="mb-0"><i class="bi bi-info-circle me-2"></i>Interview Modes</h6>
+              </div>
+              <div class="card-body">
+                <h6 class="text-primary"><i class="bi bi-people me-1"></i> Hybrid Mode</h6>
+                <p class="small text-muted">Manager conducts the interview with AI assistance. Manager can ask their own questions and trigger AI questions. AI provides real-time suggestions and notes.</p>
+
+                <hr>
+
+                <h6 class="text-info"><i class="bi bi-robot me-1"></i> AI Only Mode</h6>
+                <p class="small text-muted mb-0">AI conducts the entire interview autonomously. Questions are asked from the job role template. Ideal for initial screening interviews.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+      tooltipTriggerList.forEach(el => new bootstrap.Tooltip(el));
+
+      // Toggle manager section based on mode
+      const modeSelect = document.querySelector('select[name="mode"]');
+      const managerSection = document.getElementById('managerSection');
+
+      modeSelect?.addEventListener('change', () => {
+        managerSection.style.display = modeSelect.value === 'AI_ONLY' ? 'none' : 'block';
+      });
+
+      // Form submission
+      document.getElementById('scheduleInterviewForm')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const data = Object.fromEntries(formData);
+
+        // Format datetime
+        if (data.scheduledAt) {
+          data.scheduledAt = new Date(data.scheduledAt).toISOString();
+        }
+        data.duration = parseInt(data.duration) || 60;
+
+        try {
+          const res = await fetch('/api/interviews', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer temp' // Would use real token in production
+            },
+            body: JSON.stringify(data)
+          });
+
+          const result = await res.json();
+          if (result.success) {
+            window.location.href = '/admin/interviews?token=<%= token %>';
+          } else {
+            alert(result.error || 'Failed to schedule interview');
+          }
+        } catch (err) {
+          alert('Error scheduling interview');
+        }
+      });
+    });
+  </script>
+</body>
+</html>

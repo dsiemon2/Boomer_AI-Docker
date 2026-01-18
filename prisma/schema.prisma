@@ -1,0 +1,676 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// BOOMER AI - USER & AUTHENTICATION
+// ============================================
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  phone         String?
+  password      String
+  name          String
+  timezone      String   @default("America/New_York")
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Accessibility settings (JSON)
+  accessibilitySettings String @default("{\"largeText\": false, \"highContrast\": false, \"speechSpeed\": \"medium\"}")
+
+  // Consent flags (JSON)
+  consentFlags String @default("{\"smsNotifications\": true, \"emailNotifications\": true, \"pushNotifications\": true}")
+
+  // Email verification
+  emailVerified            Boolean   @default(false)
+  emailVerificationToken   String?
+  emailVerificationExpires DateTime?
+
+  // Password reset
+  passwordResetToken   String?
+  passwordResetExpires DateTime?
+
+  // OAuth providers
+  googleId    String?
+  microsoftId String?
+  appleId     String?
+
+  // Relations
+  contacts           Contact[]
+  appointments       Appointment[]
+  medications        Medication[]
+  notes              Note[]
+  notifications      Notification[]
+  deviceTokens       DeviceToken[]
+  caregiverAccessGiven   CaregiverAccess[] @relation("UserToCaregiver")
+  caregiverAccessReceived CaregiverAccess[] @relation("CaregiverToUser")
+  paymentMethods     UserPaymentMethod[]
+  notificationPrefs  UserNotificationPreference?
+  devices            UserDevice[]
+
+  @@index([emailVerificationToken])
+  @@index([passwordResetToken])
+}
+
+// ============================================
+// BOOMER AI - DEVICE TOKENS (FCM)
+// ============================================
+
+model DeviceToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique  // FCM token
+  platform  String   @default("web") // web, ios, android
+  deviceId  String?  // Optional device identifier
+  name      String?  // Optional device name "John's iPhone"
+  isActive  Boolean  @default(true)
+  lastUsed  DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([token])
+  @@index([isActive])
+}
+
+// ============================================
+// BOOMER AI - CONTACTS
+// ============================================
+
+model Contact {
+  id                  String   @id @default(cuid())
+  name                String
+  phone               String?
+  email               String?
+  relationship        String   @default("OTHER") // FAMILY, DOCTOR, FRIEND, MECHANIC, PHARMACY, CAREGIVER, OTHER
+  preferredMethod     String   @default("PHONE") // PHONE, SMS, EMAIL
+  notes               String?
+  photo               String?  // URL or base64
+  isEmergencyContact  Boolean  @default(false)
+  userId              String
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([userId])
+  @@index([relationship])
+}
+
+// ============================================
+// BOOMER AI - CALENDAR & APPOINTMENTS
+// ============================================
+
+model Appointment {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  category    String   @default("OTHER") // DOCTOR, VEHICLE, PERSONAL, FINANCE, SOCIAL, OTHER
+  location    String?
+  startAt     DateTime
+  endAt       DateTime?
+  allDay      Boolean  @default(false)
+  notes       String?
+
+  // Recurrence (JSON: { rule: "WEEKLY", interval: 1, endDate: null })
+  recurrence  String?
+
+  // Reminders (JSON array: [{ type: "push", minutesBefore: 1440 }, { type: "sms", minutesBefore: 120 }])
+  reminders   String   @default("[{\"type\": \"push\", \"minutesBefore\": 1440}]")
+
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([startAt])
+  @@index([category])
+}
+
+// ============================================
+// BOOMER AI - MEDICATIONS
+// ============================================
+
+model Medication {
+  id            String   @id @default(cuid())
+  name          String
+  form          String   @default("PILL") // PILL, CAPSULE, LIQUID, INJECTION, TOPICAL, INHALER, DROPS, OTHER
+  dosage        String?  // "10 mg", "5 ml", etc.
+  instructions  String?  // "Take with food", "Avoid alcohol", etc.
+  prescribedBy  String?  // Doctor name
+  pharmacy      String?  // Pharmacy name
+
+  // Schedule (JSON: { times: ["08:00", "20:00"], daysOfWeek: [0,1,2,3,4,5,6] })
+  schedule      String   @default("{\"times\": [\"08:00\"], \"daysOfWeek\": [0,1,2,3,4,5,6]}")
+
+  // Refill info
+  refillDate    DateTime?
+  pillsRemaining Int?
+  refillReminder Boolean @default(true)
+
+  isActive      Boolean  @default(true)
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  logs          MedicationLog[]
+
+  @@index([userId])
+  @@index([isActive])
+}
+
+model MedicationLog {
+  id           String   @id @default(cuid())
+  medicationId String
+  medication   Medication @relation(fields: [medicationId], references: [id], onDelete: Cascade)
+  scheduledAt  DateTime
+  status       String   @default("PENDING") // PENDING, TAKEN, MISSED, SNOOZED, SKIPPED
+  takenAt      DateTime?
+  snoozedUntil DateTime?
+  notes        String?
+  source       String   @default("USER") // USER, CAREGIVER, SYSTEM
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([medicationId])
+  @@index([scheduledAt])
+  @@index([status])
+}
+
+// ============================================
+// BOOMER AI - NOTES
+// ============================================
+
+model Note {
+  id        String   @id @default(cuid())
+  title     String?
+  body      String
+  category  String   @default("GENERAL") // HEALTH, HOME, FINANCE, FAMILY, EMERGENCY, GENERAL
+  isPinned  Boolean  @default(false)
+  tags      String   @default("[]") // JSON array of tags
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([category])
+  @@index([isPinned])
+}
+
+// ============================================
+// BOOMER AI - IMPORTANT DATES
+// ============================================
+
+model ImportantDate {
+  id        String   @id @default(cuid())
+  title     String   // "Mom's Birthday", "Insurance Renewal"
+  date      DateTime // The date (month/day, year for non-recurring)
+  category  String   @default("OTHER") // BIRTHDAY, ANNIVERSARY, RENEWAL, CHECKUP, OTHER
+  isAnnual  Boolean  @default(true) // Recurs every year
+  notes     String?
+
+  // Reminders (JSON array)
+  reminders String   @default("[{\"type\": \"push\", \"daysBefore\": 7}, {\"type\": \"push\", \"daysBefore\": 1}]")
+
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([date])
+}
+
+// ============================================
+// BOOMER AI - CAREGIVER ACCESS
+// ============================================
+
+model CaregiverAccess {
+  id              String   @id @default(cuid())
+  userId          String   // The user being cared for
+  user            User     @relation("UserToCaregiver", fields: [userId], references: [id], onDelete: Cascade)
+  caregiverId     String   // The caregiver user
+  caregiver       User     @relation("CaregiverToUser", fields: [caregiverId], references: [id], onDelete: Cascade)
+  role            String   @default("VIEW_ONLY") // VIEW_ONLY, EDIT, EMERGENCY_ONLY
+  status          String   @default("PENDING") // PENDING, ACTIVE, REVOKED
+
+  // Permissions (JSON: { calendar: true, medications: true, contacts: true, notes: false })
+  permissions     String   @default("{\"calendar\": true, \"medications\": true, \"contacts\": true, \"notes\": false}")
+
+  invitedAt       DateTime @default(now())
+  acceptedAt      DateTime?
+  revokedAt       DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([userId, caregiverId])
+  @@index([userId])
+  @@index([caregiverId])
+  @@index([status])
+}
+
+// ============================================
+// BOOMER AI - NOTIFICATIONS
+// ============================================
+
+model Notification {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        String   // MEDICATION_REMINDER, APPOINTMENT_REMINDER, CAREGIVER_ALERT, SYSTEM
+  channel     String   @default("PUSH") // PUSH, SMS, EMAIL, IN_APP
+  title       String
+  body        String
+  payload     String   @default("{}") // JSON additional data
+  scheduledAt DateTime
+  sentAt      DateTime?
+  readAt      DateTime?
+  status      String   @default("PENDING") // PENDING, SENT, DELIVERED, FAILED, READ
+  attempts    Int      @default(0)
+  lastError   String?
+
+  // Idempotency
+  idempotencyKey String? @unique
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([scheduledAt])
+  @@index([status])
+  @@index([type])
+}
+
+// ============================================
+// BOOMER AI - VOICE SESSIONS
+// ============================================
+
+model VoiceSession {
+  id          String   @id @default(cuid())
+  userId      String
+  sessionToken String  @unique @default(cuid())
+  status      String   @default("ACTIVE") // ACTIVE, COMPLETED, EXPIRED
+
+  // Transcript segments (JSON array of { speaker, text, timestamp })
+  transcript  String   @default("[]")
+
+  // Commands processed (JSON array of { intent, entities, response })
+  commands    String   @default("[]")
+
+  startedAt   DateTime @default(now())
+  endedAt     DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([sessionToken])
+  @@index([status])
+}
+
+// ============================================
+// AUDIT LOG
+// ============================================
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String   // CREATE, UPDATE, DELETE, VIEW, LOGIN, LOGOUT, VOICE_COMMAND
+  entity    String   // User, Appointment, Medication, Contact, Note, etc.
+  entityId  String?
+  userId    String?
+  details   String   @default("{}") // JSON additional details
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([entity])
+  @@index([createdAt])
+}
+
+// ============================================
+// APP CONFIGURATION
+// ============================================
+
+model AppConfig {
+  id                   String   @id @default(cuid())
+  appName              String   @default("Boomer AI")
+  selectedVoice        String   @default("alloy")
+  defaultLanguage      String   @default("en")
+  maxSessionMins       Int      @default(30)
+  transcriptionEnabled Boolean  @default(true)
+
+  // Notification defaults
+  defaultReminderChannels String @default("[\"push\"]") // JSON array
+  smsEnabled           Boolean  @default(false)
+  emailEnabled         Boolean  @default(true)
+
+  // Payment Gateway Settings
+  paymentGatewayEnabled Boolean  @default(false)
+  stripeEnabled         Boolean  @default(false)
+  stripePublishableKey  String?
+  stripeSecretKey       String?
+  stripeTestMode        Boolean  @default(true)
+  stripeAchEnabled      Boolean  @default(false)
+  braintreeEnabled      Boolean  @default(false)
+  braintreeMerchantId   String?
+  braintreePublicKey    String?
+  braintreePrivateKey   String?
+  braintreeSandbox      Boolean  @default(true)
+  paypalEnabled         Boolean  @default(false)
+  paypalClientId        String?
+  paypalClientSecret    String?
+  paypalSandbox         Boolean  @default(true)
+  // Square
+  squareEnabled         Boolean  @default(false)
+  squareAppId           String?
+  squareAccessToken     String?
+  squareLocationId      String?
+  squareSandbox         Boolean  @default(true)
+  // Authorize.net
+  authorizeEnabled      Boolean  @default(false)
+  authorizeApiLoginId   String?
+  authorizeTransactionKey String?
+  authorizeSignatureKey String?
+  authorizeTestMode     Boolean  @default(true)
+
+  updatedAt            DateTime @updatedAt
+}
+
+// ============================================
+// AI AGENTS
+// ============================================
+
+model AIAgent {
+  id           String   @id @default(cuid())
+  name         String
+  description  String?
+  systemPrompt String?
+  model        String   @default("gpt-4o-realtime")
+  voice        String   @default("alloy")
+  temperature  Float    @default(0.7)
+  isActive     Boolean  @default(true)
+  isDefault    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// ============================================
+// LANGUAGES
+// ============================================
+
+model Language {
+  id         String   @id @default(cuid())
+  code       String   @unique // en, es, fr, de, etc.
+  name       String   // English, Spanish, French, etc.
+  nativeName String   // English, Español, Français, etc.
+  flag       String   @default("🌐") // Emoji flag
+  enabled    Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+// ============================================
+// SMS SETTINGS (for notifications)
+// ============================================
+
+model SMSSettings {
+  id              String   @id @default(cuid())
+  provider        String   @default("twilio") // twilio, vonage, etc.
+  accountSid      String?
+  authToken       String?
+  fromNumber      String?
+  enableReminders Boolean  @default(true)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// ============================================
+// WEBHOOKS (for integrations)
+// ============================================
+
+model Webhook {
+  id        String   @id @default(cuid())
+  name      String
+  url       String
+  events    String   @default("[]") // JSON array of event types
+  secret    String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================
+// SUBSCRIPTION & BILLING
+// ============================================
+
+model Subscription {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  plan          String   @default("FREE") // FREE, PLUS, FAMILY, PREMIUM
+  status        String   @default("ACTIVE") // ACTIVE, CANCELLED, PAST_DUE, TRIAL
+  stripeCustomerId   String?
+  stripeSubscriptionId String?
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  cancelAtPeriodEnd  Boolean @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}
+
+model Payment {
+  id            String   @id @default(cuid())
+  userId        String
+  amount        Float
+  currency      String   @default("USD")
+  status        String   @default("PENDING") // PENDING, COMPLETED, FAILED, REFUNDED
+  method        String?  // card, bank, paypal
+  stripePaymentId String?
+  description   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}
+
+// ============================================
+// BRANDING & SETTINGS
+// ============================================
+
+model Branding {
+  id              String   @id @default(cuid())
+  logoUrl         String   @default("")
+  faviconUrl      String   @default("")
+  primaryColor    String   @default("#16a34a") // Green
+  secondaryColor  String   @default("#15803d")
+  accentColor     String   @default("#22c55e")
+  headingFont     String   @default("Inter")
+  bodyFont        String   @default("Inter")
+  updatedAt       DateTime @updatedAt
+}
+
+model StoreInfo {
+  id              String   @id @default(cuid())
+  businessName    String   @default("Boomer AI")
+  tagline         String   @default("Your Life Organization Assistant")
+  description     String   @default("AI-powered life organization and reminder assistant")
+  address         String   @default("")
+  phone           String   @default("")
+  email           String   @default("")
+  website         String   @default("")
+  businessHours   String   @default("")
+  timezone        String   @default("America/New_York")
+  updatedAt       DateTime @updatedAt
+}
+
+model Features {
+  id                      String   @id @default(cuid())
+  faqEnabled              Boolean  @default(false)
+  stickyBarEnabled        Boolean  @default(false)
+  stickyBarText           String   @default("")
+  stickyBarBgColor        String   @default("#16a34a")
+  stickyBarLink           String   @default("")
+  stickyBarLinkText       String   @default("")
+  liveChatEnabled         Boolean  @default(false)
+  chatProvider            String   @default("builtin")
+  chatWelcomeMessage      String   @default("Hi! How can we help you today?")
+  chatAgentName           String   @default("Support")
+  chatWidgetColor         String   @default("#16a34a")
+  chatPosition            String   @default("bottom-right")
+  chatShowOnMobile        Boolean  @default(true)
+  chatWidgetId            String   @default("")
+  chatEmbedCode           String   @default("")
+  emailNotifications      Boolean  @default(true)
+  smsNotifications        Boolean  @default(false)
+  pushNotifications       Boolean  @default(false)
+  orderConfirmations      Boolean  @default(true)
+  marketingEmails         Boolean  @default(false)
+  appointmentReminders    Boolean  @default(true)
+  facebookEnabled         Boolean  @default(false)
+  facebookUrl             String   @default("")
+  twitterEnabled          Boolean  @default(false)
+  twitterUrl              String   @default("")
+  instagramEnabled        Boolean  @default(false)
+  instagramUrl            String   @default("")
+  linkedinEnabled         Boolean  @default(false)
+  linkedinUrl             String   @default("")
+  youtubeEnabled          Boolean  @default(false)
+  youtubeUrl              String   @default("")
+  tiktokEnabled           Boolean  @default(false)
+  tiktokUrl               String   @default("")
+  shareOnFacebook         Boolean  @default(true)
+  shareOnTwitter          Boolean  @default(true)
+  shareOnLinkedin         Boolean  @default(false)
+  shareOnWhatsapp         Boolean  @default(true)
+  shareOnEmail            Boolean  @default(true)
+  copyLinkButton          Boolean  @default(true)
+  updatedAt               DateTime @updatedAt
+}
+
+model PaymentSettings {
+  id                      String   @id @default(cuid())
+  enabled                 Boolean  @default(false)
+  // Stripe
+  stripeEnabled           Boolean  @default(false)
+  stripePublishableKey    String   @default("")
+  stripeSecretKey         String   @default("")
+  stripeTestMode          Boolean  @default(true)
+  stripeWebhookSecret     String   @default("")
+  // PayPal
+  paypalEnabled           Boolean  @default(false)
+  paypalClientId          String   @default("")
+  paypalClientSecret      String   @default("")
+  paypalSandbox           Boolean  @default(true)
+  paypalWebhookId         String   @default("")
+  // Square
+  squareEnabled           Boolean  @default(false)
+  squareAppId             String   @default("")
+  squareAccessToken       String   @default("")
+  squareLocationId        String   @default("")
+  squareSandbox           Boolean  @default(true)
+  squareWebhookSignature  String   @default("")
+  // Braintree
+  braintreeEnabled        Boolean  @default(false)
+  braintreeMerchantId     String   @default("")
+  braintreePublicKey      String   @default("")
+  braintreePrivateKey     String   @default("")
+  braintreeTestMode       Boolean  @default(true)
+  // Authorize.net
+  authorizeEnabled        Boolean  @default(false)
+  authorizeApiLoginId     String   @default("")
+  authorizeTransactionKey String   @default("")
+  authorizeTestMode       Boolean  @default(true)
+  authorizeSignatureKey   String   @default("")
+  updatedAt               DateTime @updatedAt
+}
+
+// ============================================
+// USER ACCOUNT SETTINGS
+// ============================================
+
+model UserPaymentMethod {
+  id                     String   @id @default(cuid())
+  userId                 String
+  user                   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  isDefault              Boolean  @default(false)
+  cardType               String   // visa, mastercard, amex, discover
+  cardLast4              String
+  cardHolderName         String
+  expiryMonth            Int
+  expiryYear             Int
+  gateway                String?  // stripe, paypal, braintree, square, authorize
+  gatewayCustomerId      String?
+  gatewayPaymentMethodId String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model UserNotificationPreference {
+  id                     String   @id @default(cuid())
+  userId                 String   @unique
+  user                   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Appointment reminders
+  appointmentEmail       Boolean  @default(true)
+  appointmentSms         Boolean  @default(true)
+  appointmentPush        Boolean  @default(true)
+
+  // Medication reminders
+  medicationEmail        Boolean  @default(false)
+  medicationSms          Boolean  @default(true)
+  medicationPush         Boolean  @default(true)
+
+  // Caregiver notifications
+  caregiverEmail         Boolean  @default(true)
+  caregiverSms           Boolean  @default(false)
+  caregiverPush          Boolean  @default(true)
+
+  // Subscription & payment
+  subscriptionEmail      Boolean  @default(true)
+  subscriptionSms        Boolean  @default(false)
+  subscriptionPush       Boolean  @default(false)
+  paymentEmail           Boolean  @default(true)
+  paymentSms             Boolean  @default(false)
+  paymentPush            Boolean  @default(false)
+
+  // Security
+  securityEmail          Boolean  @default(true)
+  securitySms            Boolean  @default(true)
+  securityPush           Boolean  @default(true)
+
+  updatedAt              DateTime @updatedAt
+}
+
+model UserDevice {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceName  String?
+  deviceType  String   @default("desktop") // desktop, mobile, tablet
+  osName      String?
+  osVersion   String?
+  browser     String?
+  ipAddress   String?
+  isCurrent   Boolean  @default(false)
+  lastSeenAt  DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+}

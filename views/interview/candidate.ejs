@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Interview - <%= jobRole.title %> at <%= company.name %></title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+  <style>
+    :root {
+      --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    body {
+      background: #f8f9fa;
+      min-height: 100vh;
+    }
+    .interview-header {
+      background: var(--primary-gradient);
+      color: white;
+      padding: 1rem 0;
+    }
+    .interview-container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 2rem 1rem;
+    }
+    .ai-avatar {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      background: var(--primary-gradient);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 1rem;
+      box-shadow: 0 10px 40px rgba(102, 126, 234, 0.4);
+      transition: all 0.3s ease;
+    }
+    .ai-avatar i {
+      font-size: 3rem;
+      color: white;
+    }
+    .ai-avatar.speaking {
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+    .ai-avatar.listening {
+      box-shadow: 0 10px 40px rgba(40, 167, 69, 0.6);
+      background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    }
+    .ai-avatar.thinking {
+      animation: think 1s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+    @keyframes think {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.5rem 1rem;
+      border-radius: 50px;
+      font-weight: 500;
+      margin-bottom: 1rem;
+    }
+    .status-badge.speaking {
+      background: #e3f2fd;
+      color: #1976d2;
+    }
+    .status-badge.listening {
+      background: #e8f5e9;
+      color: #388e3c;
+    }
+    .status-badge.thinking {
+      background: #fff3e0;
+      color: #f57c00;
+    }
+    .transcript-container {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    .transcript-entry {
+      padding: 1rem;
+      border-bottom: 1px solid #eee;
+    }
+    .transcript-entry:last-child {
+      border-bottom: none;
+    }
+    .transcript-entry.ai {
+      background: #f8f9ff;
+    }
+    .transcript-entry .speaker {
+      font-weight: 600;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      margin-bottom: 0.25rem;
+    }
+    .transcript-entry.ai .speaker {
+      color: #667eea;
+    }
+    .transcript-entry.candidate .speaker {
+      color: #28a745;
+    }
+    .controls-card {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+      padding: 2rem;
+      text-align: center;
+    }
+    .mic-button {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      font-size: 2rem;
+      border: none;
+      transition: all 0.3s ease;
+    }
+    .mic-button.recording {
+      background: #dc3545;
+      color: white;
+      animation: pulse 1s ease-in-out infinite;
+    }
+    .audio-visualizer {
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      margin: 1rem 0;
+    }
+    .audio-bar {
+      width: 4px;
+      background: #667eea;
+      border-radius: 2px;
+      transition: height 0.1s ease;
+    }
+    .setup-card {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+      padding: 2rem;
+    }
+    .permission-check {
+      display: flex;
+      align-items: center;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 0.5rem;
+    }
+    .permission-check.granted {
+      background: #e8f5e9;
+      color: #388e3c;
+    }
+    .permission-check.denied {
+      background: #ffebee;
+      color: #c62828;
+    }
+    .permission-check.pending {
+      background: #fff3e0;
+      color: #f57c00;
+    }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <header class="interview-header">
+    <div class="container">
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <h5 class="mb-0"><%= company.name %></h5>
+          <small><%= jobRole.title %> Interview</small>
+        </div>
+        <div class="text-end">
+          <small>Candidate</small>
+          <div><strong><%= interview.candidateName %></strong></div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="interview-container">
+    <!-- Setup Phase -->
+    <div id="setupPhase">
+      <div class="setup-card">
+        <h4 class="mb-4 text-center">Interview Setup</h4>
+        <p class="text-muted text-center mb-4">
+          Before we begin, let's make sure your microphone is working properly.
+        </p>
+
+        <div id="permissionChecks">
+          <div class="permission-check pending" id="micPermission">
+            <i class="bi bi-mic me-3 fs-4"></i>
+            <div>
+              <strong>Microphone Access</strong>
+              <div class="small">Click below to grant permission</div>
+            </div>
+          </div>
+          <div class="permission-check pending" id="wsConnection">
+            <i class="bi bi-wifi me-3 fs-4"></i>
+            <div>
+              <strong>Connection Status</strong>
+              <div class="small">Connecting to server...</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="text-center mt-4">
+          <button class="btn btn-primary btn-lg" id="testMicBtn">
+            <i class="bi bi-mic me-2"></i>Test Microphone
+          </button>
+        </div>
+
+        <div id="micTestArea" class="mt-4 hidden">
+          <div class="audio-visualizer" id="testVisualizer">
+            <div class="audio-bar" style="height: 20px;"></div>
+            <div class="audio-bar" style="height: 30px;"></div>
+            <div class="audio-bar" style="height: 25px;"></div>
+            <div class="audio-bar" style="height: 40px;"></div>
+            <div class="audio-bar" style="height: 35px;"></div>
+            <div class="audio-bar" style="height: 45px;"></div>
+            <div class="audio-bar" style="height: 30px;"></div>
+            <div class="audio-bar" style="height: 25px;"></div>
+          </div>
+          <p class="text-center text-muted small">Speak to test your microphone level</p>
+        </div>
+
+        <div class="text-center mt-4">
+          <button class="btn btn-success btn-lg hidden" id="startInterviewBtn">
+            <i class="bi bi-play-circle me-2"></i>Start Interview
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Interview Phase -->
+    <div id="interviewPhase" class="hidden">
+      <div class="row">
+        <div class="col-lg-4 mb-4">
+          <div class="controls-card">
+            <div class="ai-avatar" id="aiAvatar">
+              <i class="bi bi-robot"></i>
+            </div>
+            <div id="aiStatus">
+              <span class="status-badge speaking">
+                <i class="bi bi-volume-up me-2"></i>AI Speaking
+              </span>
+            </div>
+            <p class="text-muted small mb-3" id="currentQuestion"></p>
+
+            <div class="audio-visualizer" id="audioVisualizer">
+              <div class="audio-bar" style="height: 20px;"></div>
+              <div class="audio-bar" style="height: 30px;"></div>
+              <div class="audio-bar" style="height: 25px;"></div>
+              <div class="audio-bar" style="height: 40px;"></div>
+              <div class="audio-bar" style="height: 35px;"></div>
+              <div class="audio-bar" style="height: 45px;"></div>
+              <div class="audio-bar" style="height: 30px;"></div>
+              <div class="audio-bar" style="height: 25px;"></div>
+            </div>
+
+            <div class="d-flex justify-content-center gap-3 mt-3">
+              <button class="btn btn-outline-danger" id="endInterviewBtn" data-bs-toggle="tooltip" title="End interview early">
+                <i class="bi bi-stop-circle"></i>
+              </button>
+            </div>
+
+            <div class="mt-3">
+              <small class="text-muted">
+                <i class="bi bi-clock me-1"></i>
+                <span id="interviewTimer">00:00</span>
+              </small>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-lg-8">
+          <h5 class="mb-3">
+            <i class="bi bi-chat-text me-2"></i>Transcript
+          </h5>
+          <div class="transcript-container" id="transcriptContainer">
+            <div class="text-center text-muted p-4" id="emptyTranscript">
+              <i class="bi bi-chat-dots fs-1 mb-2 d-block"></i>
+              The conversation will appear here
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hidden audio element for AI speech -->
+  <audio id="aiAudio" style="display: none;"></audio>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    const token = '<%= token %>';
+    const wsUrl = '<%= wsUrl %>';
+
+    let ws = null;
+    let mediaRecorder = null;
+    let audioContext = null;
+    let analyser = null;
+    let micStream = null;
+    let isRecording = false;
+    let interviewStartTime = null;
+    let timerInterval = null;
+
+    // DOM Elements
+    const setupPhase = document.getElementById('setupPhase');
+    const interviewPhase = document.getElementById('interviewPhase');
+    const testMicBtn = document.getElementById('testMicBtn');
+    const startInterviewBtn = document.getElementById('startInterviewBtn');
+    const endInterviewBtn = document.getElementById('endInterviewBtn');
+    const micPermission = document.getElementById('micPermission');
+    const wsConnection = document.getElementById('wsConnection');
+    const micTestArea = document.getElementById('micTestArea');
+    const aiAvatar = document.getElementById('aiAvatar');
+    const aiStatus = document.getElementById('aiStatus');
+    const transcriptContainer = document.getElementById('transcriptContainer');
+    const emptyTranscript = document.getElementById('emptyTranscript');
+    const aiAudio = document.getElementById('aiAudio');
+    const interviewTimer = document.getElementById('interviewTimer');
+    const currentQuestion = document.getElementById('currentQuestion');
+
+    // Initialize tooltips
+    document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
+      new bootstrap.Tooltip(el);
+    });
+
+    // Connect WebSocket
+    function connectWebSocket() {
+      ws = new WebSocket(`${wsUrl}?token=${token}&role=candidate`);
+
+      ws.onopen = () => {
+        console.log('WebSocket connected');
+        updateConnectionStatus(true);
+      };
+
+      ws.onclose = () => {
+        console.log('WebSocket disconnected');
+        updateConnectionStatus(false);
+        // Try to reconnect after 3 seconds
+        setTimeout(connectWebSocket, 3000);
+      };
+
+      ws.onerror = (err) => {
+        console.error('WebSocket error:', err);
+      };
+
+      ws.onmessage = (event) => {
+        const message = JSON.parse(event.data);
+        handleServerMessage(message);
+      };
+    }
+
+    function updateConnectionStatus(connected) {
+      wsConnection.className = 'permission-check ' + (connected ? 'granted' : 'denied');
+      wsConnection.querySelector('.small').textContent = connected ? 'Connected' : 'Disconnected';
+    }
+
+    // Handle messages from server
+    function handleServerMessage(message) {
+      console.log('Server message:', message);
+
+      switch (message.type) {
+        case 'session_ready':
+          console.log('Session ready:', message.data);
+          break;
+
+        case 'ai_speaking':
+          setAIState('speaking');
+          if (message.data?.text) {
+            currentQuestion.textContent = message.data.text;
+          }
+          break;
+
+        case 'ai_listening':
+          setAIState('listening');
+          startRecording();
+          break;
+
+        case 'ai_thinking':
+          setAIState('thinking');
+          stopRecording();
+          break;
+
+        case 'audio':
+          playAudio(message.audio);
+          if (message.data?.text) {
+            currentQuestion.textContent = message.data.text;
+          }
+          break;
+
+        case 'transcript_update':
+          addTranscriptEntry(message.data.speaker, message.data.text);
+          break;
+
+        case 'question_started':
+          console.log('New question:', message.data);
+          break;
+
+        case 'interview_started':
+          console.log('Interview started');
+          startTimer();
+          break;
+
+        case 'interview_completed':
+          console.log('Interview completed');
+          window.location.href = `/interview/${token}`;
+          break;
+
+        case 'error':
+          console.error('Server error:', message.data);
+          alert('Error: ' + (message.data?.message || 'Unknown error'));
+          break;
+      }
+    }
+
+    // Set AI avatar state
+    function setAIState(state) {
+      aiAvatar.className = 'ai-avatar ' + state;
+
+      let statusHtml = '';
+      switch (state) {
+        case 'speaking':
+          statusHtml = '<span class="status-badge speaking"><i class="bi bi-volume-up me-2"></i>AI Speaking</span>';
+          break;
+        case 'listening':
+          statusHtml = '<span class="status-badge listening"><i class="bi bi-mic me-2"></i>Listening...</span>';
+          break;
+        case 'thinking':
+          statusHtml = '<span class="status-badge thinking"><i class="bi bi-hourglass-split me-2"></i>Processing...</span>';
+          break;
+      }
+      aiStatus.innerHTML = statusHtml;
+    }
+
+    // Play audio from base64
+    function playAudio(base64Audio) {
+      const audioBlob = base64ToBlob(base64Audio, 'audio/mp3');
+      const audioUrl = URL.createObjectURL(audioBlob);
+      aiAudio.src = audioUrl;
+      aiAudio.play().catch(err => console.error('Audio play error:', err));
+
+      aiAudio.onended = () => {
+        URL.revokeObjectURL(audioUrl);
+        // AI finished speaking, server will send ai_listening
+      };
+    }
+
+    function base64ToBlob(base64, type) {
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      return new Blob([bytes], { type });
+    }
+
+    // Add transcript entry
+    function addTranscriptEntry(speaker, text) {
+      emptyTranscript.classList.add('hidden');
+
+      const entry = document.createElement('div');
+      entry.className = 'transcript-entry ' + speaker;
+      entry.innerHTML = `
+        <div class="speaker">${speaker === 'ai' ? 'AI Interviewer' : 'You'}</div>
+        <div>${text}</div>
+      `;
+      transcriptContainer.appendChild(entry);
+      transcriptContainer.scrollTop = transcriptContainer.scrollHeight;
+    }
+
+    // Test microphone
+    testMicBtn.addEventListener('click', async () => {
+      try {
+        micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+        micPermission.className = 'permission-check granted';
+        micPermission.querySelector('.small').textContent = 'Permission granted';
+
+        micTestArea.classList.remove('hidden');
+        testMicBtn.classList.add('hidden');
+        startInterviewBtn.classList.remove('hidden');
+
+        // Setup audio visualizer
+        audioContext = new AudioContext();
+        analyser = audioContext.createAnalyser();
+        const source = audioContext.createMediaStreamSource(micStream);
+        source.connect(analyser);
+        analyser.fftSize = 256;
+
+        visualizeMic('testVisualizer');
+      } catch (err) {
+        console.error('Microphone error:', err);
+        micPermission.className = 'permission-check denied';
+        micPermission.querySelector('.small').textContent = 'Permission denied - please allow microphone access';
+      }
+    });
+
+    // Visualize microphone input
+    function visualizeMic(containerId) {
+      const container = document.getElementById(containerId);
+      const bars = container.querySelectorAll('.audio-bar');
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+      function draw() {
+        if (!analyser) return;
+        requestAnimationFrame(draw);
+        analyser.getByteFrequencyData(dataArray);
+
+        bars.forEach((bar, i) => {
+          const value = dataArray[i * 4] || 0;
+          const height = Math.max(10, (value / 255) * 60);
+          bar.style.height = height + 'px';
+        });
+      }
+      draw();
+    }
+
+    // Start interview
+    startInterviewBtn.addEventListener('click', async () => {
+      try {
+        // Notify server we are ready
+        ws.send(JSON.stringify({ type: 'candidate_ready' }));
+
+        // Switch to interview phase
+        setupPhase.classList.add('hidden');
+        interviewPhase.classList.remove('hidden');
+
+        // Setup main visualizer
+        visualizeMic('audioVisualizer');
+      } catch (err) {
+        console.error('Start interview error:', err);
+        alert('Failed to start interview. Please try again.');
+      }
+    });
+
+    // Start recording
+    function startRecording() {
+      if (isRecording || !micStream) return;
+
+      isRecording = true;
+      mediaRecorder = new MediaRecorder(micStream, { mimeType: 'audio/webm' });
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0 && ws && ws.readyState === WebSocket.OPEN) {
+          // Convert to base64 and send
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const base64 = reader.result.split(',')[1];
+            ws.send(JSON.stringify({
+              type: 'audio_chunk',
+              data: base64
+            }));
+          };
+          reader.readAsDataURL(event.data);
+        }
+      };
+
+      mediaRecorder.start(1000); // Send chunks every second
+    }
+
+    // Stop recording
+    function stopRecording() {
+      if (!isRecording || !mediaRecorder) return;
+
+      isRecording = false;
+      mediaRecorder.stop();
+    }
+
+    // End interview early
+    endInterviewBtn.addEventListener('click', () => {
+      if (confirm('Are you sure you want to end the interview early?')) {
+        ws.send(JSON.stringify({ type: 'end_interview' }));
+      }
+    });
+
+    // Timer
+    function startTimer() {
+      interviewStartTime = Date.now();
+      timerInterval = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - interviewStartTime) / 1000);
+        const minutes = Math.floor(elapsed / 60).toString().padStart(2, '0');
+        const seconds = (elapsed % 60).toString().padStart(2, '0');
+        interviewTimer.textContent = `${minutes}:${seconds}`;
+      }, 1000);
+    }
+
+    // Initialize
+    connectWebSocket();
+  </script>
+</body>
+</html>

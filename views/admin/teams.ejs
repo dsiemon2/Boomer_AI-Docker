@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Teams Integration - Boomer AI</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+  <style>
+    .sidebar { min-height: 100vh; background: #1e3a5f; }
+    .sidebar .nav-link { color: rgba(255,255,255,0.8); padding: 0.75rem 1rem; }
+    .sidebar .nav-link:hover, .sidebar .nav-link.active { color: #fff; background: rgba(255,255,255,0.1); }
+    .sidebar .nav-link i { margin-right: 0.5rem; }
+    .main-content { background: #f8f9fa; min-height: 100vh; }
+    .nav-divider { border-top: 1px solid rgba(255,255,255,0.2); margin: 0.5rem 0; }
+    .nav-section { color: rgba(255,255,255,0.5); font-size: 0.75rem; padding: 0.5rem 1rem; text-transform: uppercase; }
+    .bulk-actions { display: none; background: #e3f2fd; padding: 0.75rem 1rem; border-radius: 8px; }
+    .bulk-actions.show { display: flex; }
+    .row-checkbox { cursor: pointer; }
+    tr.selected { background-color: #e3f2fd !important; }
+    .config-card { transition: all 0.2s ease; }
+    .config-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    .status-indicator { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+    .status-connected { background: #28a745; }
+    .status-disconnected { background: #dc3545; }
+    .teams-logo { width: 40px; height: 40px; }
+  </style>
+</head>
+<body>
+  <div class="container-fluid">
+    <div class="row">
+      <%- include('_sidebar', { token, active: 'teams' }) %>
+      <main class="col-md-10 ms-sm-auto main-content p-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <h2><i class="bi bi-microsoft-teams text-primary me-2"></i>Microsoft Teams Integration</h2>
+          <div>
+            <button class="btn btn-outline-secondary me-2" id="testConnectionBtn" data-bs-toggle="tooltip" title="Test connection to Microsoft Graph">
+              <i class="bi bi-plug"></i> Test Connection
+            </button>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#scheduleMeetingModal">
+              <i class="bi bi-plus-lg"></i> Schedule Meeting
+            </button>
+          </div>
+        </div>
+
+        <!-- Connection Status -->
+        <div class="row mb-4">
+          <div class="col-md-4">
+            <div class="card config-card">
+              <div class="card-body">
+                <div class="d-flex align-items-center">
+                  <div class="me-3">
+                    <svg class="teams-logo" viewBox="0 0 24 24" fill="#5059C9">
+                      <path d="M19.35,8.12a3.07,3.07,0,0,0,.23-1.18A3.06,3.06,0,0,0,16.5,3.87a3,3,0,0,0-2.35,1.12A5.5,5.5,0,0,0,8.5,5H8.25a5.5,5.5,0,0,0,0,11h.25a5.45,5.45,0,0,0,3.58-1.35A3.05,3.05,0,0,0,16.5,16.5a3,3,0,0,0,2.35-1.12A5.5,5.5,0,0,0,24,11,5.45,5.45,0,0,0,19.35,8.12Z"/>
+                    </svg>
+                  </div>
+                  <div class="flex-grow-1">
+                    <h6 class="mb-1">Microsoft Graph API</h6>
+                    <div class="d-flex align-items-center">
+                      <span class="status-indicator <%= teamsConfig?.connected ? 'status-connected' : 'status-disconnected' %> me-2"></span>
+                      <span class="<%= teamsConfig?.connected ? 'text-success' : 'text-danger' %>">
+                        <%= teamsConfig?.connected ? 'Connected' : 'Not Connected' %>
+                      </span>
+                    </div>
+                  </div>
+                  <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#configModal" title="Configure">
+                    <i class="bi bi-gear"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="card config-card">
+              <div class="card-body">
+                <h6 class="text-muted mb-1">Scheduled Meetings</h6>
+                <h3 class="mb-0"><%= stats?.scheduledMeetings || 0 %></h3>
+                <small class="text-muted">upcoming this week</small>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="card config-card">
+              <div class="card-body">
+                <h6 class="text-muted mb-1">Active Subscriptions</h6>
+                <h3 class="mb-0"><%= stats?.activeSubscriptions || 0 %></h3>
+                <small class="text-muted">webhook listeners</small>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Upcoming Meetings -->
+        <div class="card mb-4">
+          <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-calendar-event me-2"></i>Upcoming Teams Meetings</h5>
+            <button class="btn btn-sm btn-outline-secondary" id="refreshMeetings" data-bs-toggle="tooltip" title="Refresh meetings">
+              <i class="bi bi-arrow-clockwise"></i>
+            </button>
+          </div>
+          <div class="card-body p-0">
+            <div class="bulk-actions m-3" id="bulkActions">
+              <span class="me-3"><strong id="selectedCount">0</strong> selected</span>
+              <button class="btn btn-sm btn-outline-danger" data-bs-toggle="tooltip" title="Cancel selected meetings">
+                <i class="bi bi-x-circle"></i> Cancel Selected
+              </button>
+            </div>
+            <table class="table table-hover mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th style="width: 40px;">
+                    <input type="checkbox" class="form-check-input" id="selectAll" data-bs-toggle="tooltip" title="Select all">
+                  </th>
+                  <th>Subject</th>
+                  <th>Participant</th>
+                  <th>Date & Time</th>
+                  <th>Duration</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="tableBody">
+                <% if (meetings && meetings.length > 0) { %>
+                  <% meetings.forEach(meeting => { %>
+                  <tr>
+                    <td><input type="checkbox" class="form-check-input row-checkbox" data-id="<%= meeting.id %>"></td>
+                    <td><strong><%= meeting.subject %></strong></td>
+                    <td>
+                      <div><%= meeting.participantName %></div>
+                      <small class="text-muted"><%= meeting.participantEmail %></small>
+                    </td>
+                    <td>
+                      <div><%= new Date(meeting.startDateTime).toLocaleDateString() %></div>
+                      <small class="text-muted"><%= new Date(meeting.startDateTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) %></small>
+                    </td>
+                    <td><%= meeting.duration || 30 %> min</td>
+                    <td>
+                      <span class="badge bg-<%= meeting.status === 'scheduled' ? 'primary' : meeting.status === 'in_progress' ? 'warning' : 'success' %>">
+                        <%= meeting.status || 'Scheduled' %>
+                      </span>
+                    </td>
+                    <td>
+                      <a href="<%= meeting.joinUrl %>" target="_blank" class="btn btn-sm btn-outline-success" data-bs-toggle="tooltip" title="Join meeting">
+                        <i class="bi bi-camera-video"></i>
+                      </a>
+                      <button class="btn btn-sm btn-outline-primary" data-bs-toggle="tooltip" title="Reschedule" onclick="rescheduleMeeting('<%= meeting.id %>')">
+                        <i class="bi bi-calendar"></i>
+                      </button>
+                      <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="tooltip" title="Copy join link" onclick="copyJoinLink('<%= meeting.joinUrl %>')">
+                        <i class="bi bi-clipboard"></i>
+                      </button>
+                      <button class="btn btn-sm btn-outline-danger" data-bs-toggle="tooltip" title="Cancel meeting" onclick="cancelMeeting('<%= meeting.id %>')">
+                        <i class="bi bi-x-circle"></i>
+                      </button>
+                    </td>
+                  </tr>
+                  <% }) %>
+                <% } else { %>
+                <tr>
+                  <td colspan="7" class="text-center py-5">
+                    <i class="bi bi-calendar-x text-muted" style="font-size: 3rem;"></i>
+                    <h5 class="mt-3">No Upcoming Meetings</h5>
+                    <p class="text-muted">Schedule a Teams meeting for your next appointment.</p>
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#scheduleMeetingModal">
+                      <i class="bi bi-plus-lg"></i> Schedule Meeting
+                    </button>
+                  </td>
+                </tr>
+                <% } %>
+              </tbody>
+            </table>
+          </div>
+          <div class="card-footer bg-white d-flex justify-content-between align-items-center">
+            <div class="text-muted small">Showing <span id="showingStart">1</span>-<span id="showingEnd"><%= meetings?.length || 0 %></span> of <span id="totalRows"><%= meetings?.length || 0 %></span></div>
+            <nav>
+              <ul class="pagination pagination-sm mb-0" id="pagination"></ul>
+            </nav>
+            <select class="form-select form-select-sm" id="pageSize" style="width: auto;">
+              <option value="10">10 / page</option>
+              <option value="25">25 / page</option>
+              <option value="50">50 / page</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Webhook Subscriptions -->
+        <div class="card">
+          <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-broadcast me-2"></i>Webhook Subscriptions</h5>
+            <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addSubscriptionModal">
+              <i class="bi bi-plus-lg"></i> Add Subscription
+            </button>
+          </div>
+          <div class="card-body p-0">
+            <table class="table table-hover mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>Resource</th>
+                  <th>Change Types</th>
+                  <th>Expires</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% if (subscriptions && subscriptions.length > 0) { %>
+                  <% subscriptions.forEach(sub => { %>
+                  <tr>
+                    <td><code><%= sub.resource %></code></td>
+                    <td>
+                      <% sub.changeType.split(',').forEach(type => { %>
+                      <span class="badge bg-info me-1"><%= type %></span>
+                      <% }) %>
+                    </td>
+                    <td>
+                      <% const expiry = new Date(sub.expirationDateTime); %>
+                      <% const isExpiringSoon = expiry < new Date(Date.now() + 3600000); %>
+                      <span class="<%= isExpiringSoon ? 'text-warning' : '' %>">
+                        <%= expiry.toLocaleString() %>
+                      </span>
+                    </td>
+                    <td>
+                      <span class="badge bg-success">Active</span>
+                    </td>
+                    <td>
+                      <button class="btn btn-sm btn-outline-primary" data-bs-toggle="tooltip" title="Renew subscription" onclick="renewSubscription('<%= sub.id %>')">
+                        <i class="bi bi-arrow-repeat"></i>
+                      </button>
+                      <button class="btn btn-sm btn-outline-danger" data-bs-toggle="tooltip" title="Delete subscription" onclick="deleteSubscription('<%= sub.id %>')">
+                        <i class="bi bi-trash"></i>
+                      </button>
+                    </td>
+                  </tr>
+                  <% }) %>
+                <% } else { %>
+                <tr>
+                  <td colspan="5" class="text-center py-4 text-muted">
+                    No active webhook subscriptions
+                  </td>
+                </tr>
+                <% } %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Schedule Meeting Modal -->
+  <div class="modal fade" id="scheduleMeetingModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bi bi-calendar-plus me-2"></i>Schedule Teams Meeting</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <form id="scheduleMeetingForm">
+          <div class="modal-body">
+            <div class="row">
+              <div class="col-md-12 mb-3">
+                <label class="form-label">Meeting Subject</label>
+                <input type="text" class="form-control" name="subject" placeholder="e.g., Family Video Call - Weekly Check-in" required>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Participant Name</label>
+                <input type="text" class="form-control" name="participantName" placeholder="John Doe" required>
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Participant Email</label>
+                <input type="email" class="form-control" name="participantEmail" placeholder="john@example.com" required>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Manager Name (Optional)</label>
+                <input type="text" class="form-control" name="managerName" placeholder="Jane Smith">
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Manager Email (Optional)</label>
+                <input type="email" class="form-control" name="managerEmail" placeholder="jane@company.com">
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Start Date & Time</label>
+                <input type="datetime-local" class="form-control" name="startTime" required>
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="form-label">End Date & Time</label>
+                <input type="datetime-local" class="form-control" name="endTime" required>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Link to Appointment (Optional)</label>
+                <select class="form-select" name="appointmentId">
+                  <option value="">Select an appointment...</option>
+                  <% if (appointments && appointments.length > 0) { %>
+                    <% appointments.forEach(appointment => { %>
+                    <option value="<%= appointment.id %>"><%= appointment.participantName %> - <%= appointment.jobRole?.title %></option>
+                    <% }) %>
+                  <% } %>
+                </select>
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Options</label>
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" name="autoAdmit" id="autoAdmit">
+                  <label class="form-check-label" for="autoAdmit">Auto-admit participants</label>
+                </div>
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" name="recordAutomatically" id="recordAutomatically">
+                  <label class="form-check-label" for="recordAutomatically">Record automatically</label>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary"><i class="bi bi-calendar-check me-1"></i>Schedule Meeting</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Configuration Modal -->
+  <div class="modal fade" id="configModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bi bi-gear me-2"></i>Teams Configuration</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <form id="configForm">
+          <div class="modal-body">
+            <div class="alert alert-info">
+              <i class="bi bi-info-circle me-2"></i>
+              Configure your Microsoft Azure AD app credentials for Teams integration.
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Tenant ID</label>
+              <input type="text" class="form-control" name="tenantId" value="<%= teamsConfig?.tenantId || '' %>" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Client ID</label>
+              <input type="text" class="form-control" name="clientId" value="<%= teamsConfig?.clientId || '' %>" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Client Secret</label>
+              <input type="password" class="form-control" name="clientSecret" placeholder="Enter new secret to update">
+              <small class="text-muted">Leave blank to keep existing secret</small>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary">Save Configuration</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Subscription Modal -->
+  <div class="modal fade" id="addSubscriptionModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bi bi-broadcast me-2"></i>Add Webhook Subscription</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <form id="addSubscriptionForm">
+          <div class="modal-body">
+            <div class="mb-3">
+              <label class="form-label">Subscription Type</label>
+              <select class="form-select" name="subscriptionType" required>
+                <option value="calendar">Calendar Events</option>
+                <option value="meeting">Specific Meeting</option>
+              </select>
+            </div>
+            <div class="mb-3" id="meetingIdField" style="display: none;">
+              <label class="form-label">Meeting ID</label>
+              <input type="text" class="form-control" name="meetingId" placeholder="Meeting ID to subscribe to">
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Webhook URL</label>
+              <input type="url" class="form-control" name="webhookUrl" placeholder="https://your-domain.com/api/teams/webhook" required>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary">Create Subscription</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    const token = '<%= token %>';
+
+    document.addEventListener('DOMContentLoaded', () => {
+      // Initialize tooltips
+      const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+      tooltipTriggerList.forEach(el => new bootstrap.Tooltip(el));
+
+      // Select all functionality
+      const selectAll = document.getElementById('selectAll');
+      const checkboxes = document.querySelectorAll('.row-checkbox');
+      const bulkActions = document.getElementById('bulkActions');
+      const selectedCount = document.getElementById('selectedCount');
+
+      selectAll?.addEventListener('change', () => {
+        checkboxes.forEach(cb => {
+          cb.checked = selectAll.checked;
+          cb.closest('tr')?.classList.toggle('selected', cb.checked);
+        });
+        updateBulkActions();
+      });
+
+      checkboxes.forEach(cb => {
+        cb.addEventListener('change', () => {
+          cb.closest('tr')?.classList.toggle('selected', cb.checked);
+          updateBulkActions();
+        });
+      });
+
+      function updateBulkActions() {
+        const checked = document.querySelectorAll('.row-checkbox:checked').length;
+        selectedCount.textContent = checked;
+        bulkActions.classList.toggle('show', checked > 0);
+      }
+
+      // Toggle meeting ID field based on subscription type
+      document.querySelector('select[name="subscriptionType"]')?.addEventListener('change', (e) => {
+        const meetingIdField = document.getElementById('meetingIdField');
+        meetingIdField.style.display = e.target.value === 'meeting' ? 'block' : 'none';
+      });
+
+      // Schedule meeting form
+      document.getElementById('scheduleMeetingForm')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const data = {
+          subject: formData.get('subject'),
+          participantName: formData.get('participantName'),
+          participantEmail: formData.get('participantEmail'),
+          managerName: formData.get('managerName') || undefined,
+          managerEmail: formData.get('managerEmail') || undefined,
+          startTime: new Date(formData.get('startTime')).toISOString(),
+          endTime: new Date(formData.get('endTime')).toISOString(),
+          appointmentId: formData.get('appointmentId') || undefined,
+          autoAdmit: formData.get('autoAdmit') === 'on',
+          recordAutomatically: formData.get('recordAutomatically') === 'on',
+        };
+
+        try {
+          const res = await fetch('/api/teams/meetings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+          });
+          const result = await res.json();
+          if (result.success) {
+            alert('Meeting scheduled successfully!');
+            location.reload();
+          } else {
+            alert('Error: ' + (result.error || 'Failed to schedule meeting'));
+          }
+        } catch (err) {
+          alert('Error scheduling meeting: ' + err.message);
+        }
+      });
+
+      // Test connection
+      document.getElementById('testConnectionBtn')?.addEventListener('click', async () => {
+        try {
+          const btn = document.getElementById('testConnectionBtn');
+          btn.disabled = true;
+          btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Testing...';
+
+          const res = await fetch('<%= basePath %>/admin/teams/test-connection?token=' + token);
+          const result = await res.json();
+
+          if (result.success) {
+            alert('Connection successful!');
+          } else {
+            alert('Connection failed: ' + (result.error || 'Unknown error'));
+          }
+        } catch (err) {
+          alert('Connection test failed: ' + err.message);
+        } finally {
+          const btn = document.getElementById('testConnectionBtn');
+          btn.disabled = false;
+          btn.innerHTML = '<i class="bi bi-plug"></i> Test Connection';
+        }
+      });
+    });
+
+    function copyJoinLink(url) {
+      navigator.clipboard.writeText(url).then(() => {
+        alert('Join link copied to clipboard!');
+      });
+    }
+
+    function cancelMeeting(meetingId) {
+      if (!confirm('Are you sure you want to cancel this meeting?')) return;
+
+      fetch('/api/teams/meetings/' + meetingId, {
+        method: 'DELETE',
+      }).then(res => res.json()).then(result => {
+        if (result.success) {
+          alert('Meeting cancelled');
+          location.reload();
+        } else {
+          alert('Error: ' + (result.error || 'Failed to cancel'));
+        }
+      }).catch(err => alert('Error: ' + err.message));
+    }
+
+    function rescheduleMeeting(meetingId) {
+      alert('Reschedule modal - to be implemented');
+    }
+
+    function renewSubscription(subscriptionId) {
+      fetch('/api/teams/subscriptions/' + subscriptionId + '/renew', {
+        method: 'POST',
+      }).then(res => res.json()).then(result => {
+        if (result.success) {
+          alert('Subscription renewed');
+          location.reload();
+        } else {
+          alert('Error: ' + (result.error || 'Failed to renew'));
+        }
+      }).catch(err => alert('Error: ' + err.message));
+    }
+
+    function deleteSubscription(subscriptionId) {
+      if (!confirm('Are you sure you want to delete this subscription?')) return;
+
+      fetch('/api/teams/subscriptions/' + subscriptionId, {
+        method: 'DELETE',
+      }).then(res => res.json()).then(result => {
+        if (result.success) {
+          alert('Subscription deleted');
+          location.reload();
+        } else {
+          alert('Error: ' + (result.error || 'Failed to delete'));
+        }
+      }).catch(err => alert('Error: ' + err.message));
+    }
+  </script>
+</body>
+</html>

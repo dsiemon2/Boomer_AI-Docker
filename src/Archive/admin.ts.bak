@@ -1,0 +1,1415 @@
+import { Router, Request, Response, NextFunction } from 'express';
+import { prisma } from '../db/prisma.js';
+import pino from 'pino';
+import multer from 'multer';
+import mammoth from 'mammoth';
+import * as XLSX from 'xlsx';
+
+const router = Router();
+const logger = pino();
+
+// Configure multer for file uploads
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  fileFilter: (req, file, cb) => {
+    const allowed = ['.csv', '.docx', '.xlsx', '.xls'];
+    const ext = file.originalname.toLowerCase().slice(file.originalname.lastIndexOf('.'));
+    if (allowed.includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only CSV, Excel, and Word files are allowed'));
+    }
+  },
+});
+
+// Auth middleware
+function requireToken(req: Request, res: Response, next: NextFunction) {
+  const token = req.query.token || req.body.token;
+  const validToken = process.env.ADMIN_TOKEN || 'admin';
+
+  if (token !== validToken) {
+    return res.status(401).render('admin/error', { error: 'Unauthorized', token: '' });
+  }
+  res.locals.token = token;
+  next();
+}
+
+router.use(requireToken);
+
+// Dashboard
+router.get('/', async (req, res) => {
+  try {
+    // Get first company for demo (in production, this would come from auth)
+    const company = await prisma.company.findFirst();
+    const companyId = company?.id;
+
+    // Stats
+    const [totalInterviews, scheduledInterviews, completedInterviews, jobRoleCount] = await Promise.all([
+      prisma.interview.count({ where: companyId ? { companyId } : undefined }),
+      prisma.interview.count({ where: { status: 'SCHEDULED', ...(companyId ? { companyId } : {}) } }),
+      prisma.interview.count({ where: { status: 'COMPLETED', ...(companyId ? { companyId } : {}) } }),
+      prisma.jobRole.count({ where: { isActive: true, ...(companyId ? { companyId } : {}) } }),
+    ]);
+
+    // Upcoming interviews
+    const upcomingInterviews = await prisma.interview.findMany({
+      where: {
+        status: 'SCHEDULED',
+        scheduledAt: { gte: new Date() },
+        ...(companyId ? { companyId } : {}),
+      },
+      orderBy: { scheduledAt: 'asc' },
+      take: 10,
+      include: {
+        jobRole: { select: { title: true } },
+      },
+    });
+
+    res.render('admin/dashboard', {
+      token: res.locals.token,
+      stats: {
+        totalInterviews,
+        scheduledInterviews,
+        completedInterviews,
+        jobRoleCount,
+      },
+      upcomingInterviews,
+    });
+  } catch (err) {
+    logger.error({ err }, 'Dashboard error');
+    res.render('admin/error', { error: 'Failed to load dashboard', token: res.locals.token });
+  }
+});
+
+// Analytics Dashboard
+router.get('/analytics', async (req, res) => {
+  try {
+    const company = await prisma.company.findFirst();
+    const companyId = company?.id;
+
+    if (!companyId) {
+      return res.render('admin/error', { error: 'No company found', token: res.locals.token });
+    }
+
+    // Get date range from query params
+    const daysParam = parseInt(req.query.days as string) || 30;
+    const dateFrom = new Date();
+    dateFrom.setDate(dateFrom.getDate() - daysParam);
+
+    // Basic stats
+    const [totalInterviews, completedInterviews, scheduledInterviews, cancelledInterviews] = await Promise.all([
+      prisma.interview.count({ where: { companyId } }),
+      prisma.interview.count({ where: { companyId, status: 'COMPLETED' } }),
+      prisma.interview.count({ where: { companyId, status: 'SCHEDULED' } }),
+      prisma.interview.count({ where: { companyId, status: 'CANCELLED' } }),
+    ]);
+
+    // By recommendation
+    const byRecommendation = await prisma.interviewResult.groupBy({
+      by: ['recommendation'],
+      where: {
+        interview: { companyId },
+        recommendation: { not: null },
+      },
+      _count: true,
+    });
+
+    // By job role
+    const byJobRole = await prisma.interview.groupBy({
+      by: ['jobRoleId'],
+      where: { companyId },
+      _count: true,
+    });
+
+    // Get job role names
+    const jobRoleIds = byJobRole.map((j) => j.jobRoleId);
+    const jobRoles = await prisma.jobRole.findMany({
+      where: { id: { in: jobRoleIds } },
+      select: { id: true, title: true },
+    });
+    const jobRoleMap = Object.fromEntries(jobRoles.map((j) => [j.id, j.title]));
+
+    // Average score
+    const avgScore = await prisma.interviewResult.aggregate({
+      where: {
+        interview: { companyId },
+        overallScore: { not: null },
+      },
+      _avg: { overallScore: true },
+    });
+
+    // Recent completed interviews
+    const recentCompleted = await prisma.interview.findMany({
+      where: { companyId, status: 'COMPLETED' },
+      orderBy: { updatedAt: 'desc' },
+      take: 10,
+      include: {
+        jobRole: { select: { title: true } },
+        result: { select: { overallScore: true, recommendation: true, summary: true } },
+      },
+    });
+
+    // Top candidates (strong yes/yes with score >= 4)
+    const topCandidates = await prisma.interviewResult.findMany({
+      where: {
+        interview: { companyId, status: 'COMPLETED' },
+        overallScore: { gte: 4 },
+        recommendation: { in: ['STRONG_YES', 'YES'] },
+      },
+      select: {
+        overallScore: true,
+        recommendation: true,
+        interview: {
+          select: {
+            id: true,
+            candidateName: true,
+            candidateEmail: true,
+            jobRole: { select: { title: true } },
+            updatedAt: true,
+          },
+        },
+      },
+      orderBy: { overallScore: 'desc' },
+      take: 10,
+    });
+
+    // By mode
+    const byMode = await prisma.interview.groupBy({
+      by: ['mode'],
+      where: { companyId },
+      _count: true,
+    });
+
+    res.render('admin/analytics', {
+      token: res.locals.token,
+      company,
+      days: daysParam,
+      stats: {
+        totalInterviews,
+        completedInterviews,
+        scheduledInterviews,
+        cancelledInterviews,
+        completionRate: totalInterviews > 0 ? Math.round((completedInterviews / totalInterviews) * 100) : 0,
+        averageScore: avgScore._avg.overallScore ? avgScore._avg.overallScore.toFixed(1) : 'N/A',
+      },
+      byRecommendation: Object.fromEntries(byRecommendation.map((r) => [r.recommendation || 'NONE', r._count])),
+      byJobRole: byJobRole.map((j) => ({
+        title: jobRoleMap[j.jobRoleId] || 'Unknown',
+        count: j._count,
+      })),
+      byMode: Object.fromEntries(byMode.map((m) => [m.mode, m._count])),
+      recentCompleted,
+      topCandidates: topCandidates.map((tc) => ({
+        interviewId: tc.interview.id,
+        candidateName: tc.interview.candidateName,
+        candidateEmail: tc.interview.candidateEmail,
+        jobRole: tc.interview.jobRole.title,
+        score: tc.overallScore,
+        recommendation: tc.recommendation,
+        completedAt: tc.interview.updatedAt,
+      })),
+    });
+  } catch (err) {
+    logger.error({ err }, 'Analytics error');
+    res.render('admin/error', { error: 'Failed to load analytics', token: res.locals.token });
+  }
+});
+
+// Companies (Super Admin)
+router.get('/companies', async (req, res) => {
+  try {
+    const companies = await prisma.company.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: {
+        _count: {
+          select: { users: true, jobRoles: true, interviews: true },
+        },
+      },
+    });
+
+    res.render('admin/companies', {
+      token: res.locals.token,
+      companies,
+      total: companies.length,
+    });
+  } catch (err) {
+    logger.error({ err }, 'Companies error');
+    res.render('admin/error', { error: 'Failed to load companies', token: res.locals.token });
+  }
+});
+
+// Users
+router.get('/users', async (req, res) => {
+  try {
+    const company = await prisma.company.findFirst();
+    const companyId = company?.id;
+
+    const users = companyId
+      ? await prisma.user.findMany({
+          where: { companyId },
+          orderBy: { createdAt: 'desc' },
+        })
+      : [];
+
+    res.render('admin/users', {
+      token: res.locals.token,
+      users,
+      total: users.length,
+      company,
+    });
+  } catch (err) {
+    logger.error({ err }, 'Users error');
+    res.render('admin/error', { error: 'Failed to load users', token: res.locals.token });
+  }
+});
+
+// Job Roles
+router.get('/job-roles', async (req, res) => {
+  try {
+    const company = await prisma.company.findFirst();
+    const companyId = company?.id;
+
+    const jobRoles = companyId
+      ? await prisma.jobRole.findMany({
+          where: { companyId },
+          orderBy: { title: 'asc' },
+          include: {
+            _count: { select: { categories: true, interviews: true } },
+          },
+        })
+      : [];
+
+    res.render('admin/job-roles', {
+      token: res.locals.token,
+      jobRoles,
+      total: jobRoles.length,
+      company,
+    });
+  } catch (err) {
+    logger.error({ err }, 'Job roles error');
+    res.render('admin/error', { error: 'Failed to load job roles', token: res.locals.token });
+  }
+});
+
+// Job Role Detail
+router.get('/job-roles/:id', async (req, res) => {
+  try {
+    const jobRole = await prisma.jobRole.findUnique({
+      where: { id: req.params.id },
+      include: {
+        categories: {
+          orderBy: { order: 'asc' },
+          include: {
+            questions: {
+              where: { isActive: true },
+              orderBy: { order: 'asc' },
+            },
+          },
+        },
+        company: true,
+      },
+    });
+
+    if (!jobRole) {
+      return res.render('admin/error', { error: 'Job role not found', token: res.locals.token });
+    }
+
+    // Parse followUps JSON
+    const jobRoleWithParsed = {
+      ...jobRole,
+      categories: jobRole.categories.map(cat => ({
+        ...cat,
+        questions: cat.questions.map(q => ({
+          ...q,
+          followUps: JSON.parse(q.followUps) as string[],
+        })),
+      })),
+    };
+
+    res.render('admin/job-role-detail', {
+      token: res.locals.token,
+      jobRole: jobRoleWithParsed,
+    });
+  } catch (err) {
+    logger.error({ err }, 'Job role detail error');
+    res.render('admin/error', { error: 'Failed to load job role', token: res.locals.token });
+  }
+});
+
+// Questions
+router.get('/questions', async (req, res) => {
+  try {
+    const company = await prisma.company.findFirst();
+    const companyId = company?.id;
+
+    const jobRoles = companyId
+      ? await prisma.jobRole.findMany({
+          where: { companyId, isActive: true },
+          orderBy: { title: 'asc' },
+          include: {
+            categories: {
+              orderBy: { order: 'asc' },
+              include: {
+                questions: {
+                  where: { isActive: true },
+                  orderBy: { order: 'asc' },
+                },
+              },
+            },
+          },
+        })
+      : [];
+
+    // Parse followUps
+    const jobRolesWithParsed = jobRoles.map(jr => ({
+      ...jr,
+      categories: jr.categories.map(cat => ({
+        ...cat,
+        questions: cat.questions.map(q => ({
+          ...q,
+          followUps: JSON.parse(q.followUps) as string[],
+        })),
+      })),
+    }));
+
+    res.render('admin/questions', {
+      token: res.locals.token,
+      jobRoles: jobRolesWithParsed,
+      company,
+    });
+  } catch (err) {
+    logger.error({ err }, 'Questions error');
+    res.render('admin/error', { error: 'Failed to load questions', token: res.locals.token });
+  }
+});
+
+// Add single question
+router.post('/questions', async (req, res) => {
+  try {
+    const { categoryId, text, followUps, evaluationCriteria, timeAllocation, isRequired, order } = req.body;
+
+    const question = await prisma.question.create({
+      data: {
+        text,
+        followUps: JSON.stringify(followUps || []),
+        evaluationCriteria: evaluationCriteria || null,
+        timeAllocation: timeAllocation || 5,
+        isRequired: isRequired || false,
+        order: order || 0,
+        categoryId,
+      },
+    });
+
+    res.json({ success: true, question });
+  } catch (err) {
+    logger.error({ err }, 'Add question error');
+    res.status(500).json({ success: false, error: 'Failed to add question' });
+  }
+});
+
+// Preview Word document for questions
+router.post('/questions/preview-word', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const result = await mammoth.extractRawText({ buffer: req.file.buffer });
+    const text = result.value;
+
+    // Parse questions from the document
+    const questions = parseQuestionsFromText(text);
+
+    res.json({ success: true, questions });
+  } catch (err) {
+    logger.error({ err }, 'Word preview error');
+    res.status(500).json({ error: 'Failed to parse Word document' });
+  }
+});
+
+// Preview Excel file for questions
+router.post('/questions/preview-excel', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const questions = parseExcel(req.file.buffer);
+
+    res.json({ success: true, questions });
+  } catch (err) {
+    logger.error({ err }, 'Excel preview error');
+    res.status(500).json({ error: 'Failed to parse Excel file' });
+  }
+});
+
+// Download Excel template
+router.get('/questions/template.xlsx', (req, res) => {
+  const workbook = XLSX.utils.book_new();
+
+  const data = [
+    ['Question', 'Followups', 'Time_Minutes', 'Required', 'Evaluation_Criteria'],
+    ['Tell me about yourself', 'What are your strengths?;What motivates you?', 5, 'no', 'Looking for clear communication and self-awareness'],
+    ['Describe a challenging project you worked on', 'How did you overcome obstacles?;What did you learn?', 8, 'yes', 'Problem-solving ability and growth mindset'],
+    ['Why are you interested in this role?', 'What research have you done about our company?', 5, 'yes', 'Genuine interest and preparation'],
+  ];
+
+  const sheet = XLSX.utils.aoa_to_sheet(data);
+
+  // Set column widths
+  sheet['!cols'] = [
+    { wch: 45 }, // Question
+    { wch: 50 }, // Followups
+    { wch: 14 }, // Time_Minutes
+    { wch: 10 }, // Required
+    { wch: 50 }, // Evaluation_Criteria
+  ];
+
+  XLSX.utils.book_append_sheet(workbook, sheet, 'Questions');
+
+  const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', 'attachment; filename="questions_template.xlsx"');
+  res.send(buffer);
+});
+
+// Import questions from CSV or Word
+router.post('/questions/import', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const { jobRoleId, categoryId, newCategory, importType } = req.body;
+    const company = await prisma.company.findFirst();
+
+    if (!company) {
+      return res.status(400).json({ error: 'No company found' });
+    }
+
+    // Determine or create category
+    let targetCategoryId = categoryId;
+
+    if (newCategory && newCategory.trim()) {
+      // Create new category
+      const category = await prisma.questionCategory.create({
+        data: {
+          name: newCategory.trim(),
+          order: 0,
+          jobRoleId,
+          companyId: company.id,
+        },
+      });
+      targetCategoryId = category.id;
+    }
+
+    if (!targetCategoryId) {
+      return res.status(400).json({ error: 'Category is required' });
+    }
+
+    let questions: Array<{
+      text: string;
+      followUps: string[];
+      timeAllocation: number;
+      isRequired: boolean;
+      evaluationCriteria: string;
+    }> = [];
+
+    if (importType === 'csv') {
+      const csvText = req.file.buffer.toString('utf-8');
+      questions = parseCSV(csvText);
+    } else if (importType === 'excel') {
+      questions = parseExcel(req.file.buffer);
+    } else {
+      const result = await mammoth.extractRawText({ buffer: req.file.buffer });
+      questions = parseQuestionsFromText(result.value);
+    }
+
+    // Get current max order
+    const maxOrder = await prisma.question.aggregate({
+      where: { categoryId: targetCategoryId },
+      _max: { order: true },
+    });
+    let currentOrder = (maxOrder._max.order || 0) + 1;
+
+    // Create questions
+    const created = [];
+    for (const q of questions) {
+      const question = await prisma.question.create({
+        data: {
+          text: q.text,
+          followUps: JSON.stringify(q.followUps || []),
+          evaluationCriteria: q.evaluationCriteria || null,
+          timeAllocation: q.timeAllocation || 5,
+          isRequired: q.isRequired || false,
+          order: currentOrder++,
+          categoryId: targetCategoryId,
+        },
+      });
+      created.push(question);
+    }
+
+    res.json({ success: true, count: created.length });
+  } catch (err) {
+    logger.error({ err }, 'Import questions error');
+    res.status(500).json({ success: false, error: 'Failed to import questions' });
+  }
+});
+
+// Helper: Parse CSV
+function parseCSV(text: string): Array<{
+  text: string;
+  followUps: string[];
+  timeAllocation: number;
+  isRequired: boolean;
+  evaluationCriteria: string;
+}> {
+  const lines = text.split('\n').filter(l => l.trim());
+  if (lines.length < 2) return [];
+
+  const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase().trim());
+  const questions = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const values = parseCSVLine(lines[i]);
+    const row: Record<string, string> = {};
+    headers.forEach((h, idx) => {
+      row[h] = values[idx] || '';
+    });
+
+    const questionText = row['question'] || row['text'] || row['q'] || '';
+    if (!questionText.trim()) continue;
+
+    const followUpsStr = row['followups'] || row['follow_ups'] || row['followup'] || '';
+    const followUps = followUpsStr.split(';').map(f => f.trim()).filter(f => f);
+
+    const timeStr = row['time_minutes'] || row['time'] || row['minutes'] || '5';
+    const timeAllocation = parseInt(timeStr) || 5;
+
+    const requiredStr = row['required'] || row['is_required'] || 'no';
+    const isRequired = ['yes', 'true', '1'].includes(requiredStr.toLowerCase());
+
+    const evaluationCriteria = row['evaluation_criteria'] || row['criteria'] || row['evaluation'] || '';
+
+    questions.push({
+      text: questionText.trim(),
+      followUps,
+      timeAllocation,
+      isRequired,
+      evaluationCriteria: evaluationCriteria.trim(),
+    });
+  }
+
+  return questions;
+}
+
+// Helper: Parse CSV line (handles quoted values)
+function parseCSVLine(line: string): string[] {
+  const result: string[] = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (char === '"') {
+      inQuotes = !inQuotes;
+    } else if (char === ',' && !inQuotes) {
+      result.push(current.trim());
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  result.push(current.trim());
+  return result;
+}
+
+// Helper: Parse Excel file
+function parseExcel(buffer: Buffer): Array<{
+  text: string;
+  followUps: string[];
+  timeAllocation: number;
+  isRequired: boolean;
+  evaluationCriteria: string;
+}> {
+  const workbook = XLSX.read(buffer, { type: 'buffer' });
+  const sheetName = workbook.SheetNames[0];
+  const sheet = workbook.Sheets[sheetName];
+
+  // Convert to JSON with headers
+  const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '' });
+
+  const questions = [];
+
+  for (const row of rows) {
+    // Normalize column names (case-insensitive, handle variations)
+    const normalized: Record<string, string> = {};
+    for (const key of Object.keys(row)) {
+      normalized[key.toLowerCase().trim().replace(/\s+/g, '_')] = String(row[key] || '');
+    }
+
+    const questionText = normalized['question'] || normalized['text'] || normalized['q'] || normalized['question_text'] || '';
+    if (!questionText.trim()) continue;
+
+    const followUpsStr = normalized['followups'] || normalized['follow_ups'] || normalized['followup'] || normalized['follow-ups'] || '';
+    const followUps = followUpsStr.split(/[;|]/).map(f => f.trim()).filter(f => f);
+
+    const timeStr = normalized['time_minutes'] || normalized['time'] || normalized['minutes'] || normalized['duration'] || '5';
+    const timeAllocation = parseInt(timeStr) || 5;
+
+    const requiredStr = normalized['required'] || normalized['is_required'] || normalized['mandatory'] || 'no';
+    const isRequired = ['yes', 'true', '1', 'y'].includes(requiredStr.toLowerCase());
+
+    const evaluationCriteria = normalized['evaluation_criteria'] || normalized['criteria'] || normalized['evaluation'] || normalized['scoring'] || '';
+
+    questions.push({
+      text: questionText.trim(),
+      followUps,
+      timeAllocation,
+      isRequired,
+      evaluationCriteria: evaluationCriteria.trim(),
+    });
+  }
+
+  return questions;
+}
+
+// Helper: Parse questions from plain text (Word document)
+function parseQuestionsFromText(text: string): Array<{
+  text: string;
+  followUps: string[];
+  timeAllocation: number;
+  isRequired: boolean;
+  evaluationCriteria: string;
+}> {
+  const lines = text.split('\n').filter(l => l.trim());
+  const questions: Array<{
+    text: string;
+    followUps: string[];
+    timeAllocation: number;
+    isRequired: boolean;
+    evaluationCriteria: string;
+  }> = [];
+
+  let currentQuestion: {
+    text: string;
+    followUps: string[];
+    timeAllocation: number;
+    isRequired: boolean;
+    evaluationCriteria: string;
+  } | null = null;
+
+  // Patterns for detecting questions
+  const questionPatterns = [
+    /^\d+[\.\)]\s*(.+)/,           // 1. Question or 1) Question
+    /^[-•*]\s*(.+)/,               // - Question or • Question
+    /^Q[\.:]\s*(.+)/i,             // Q: Question or Q. Question
+    /^Question\s*\d*[\.:]\s*(.+)/i, // Question 1: ...
+  ];
+
+  // Patterns for follow-ups (indented or sub-bullets)
+  const followUpPatterns = [
+    /^\s{2,}[-•*]\s*(.+)/,         // Indented bullet
+    /^\s{2,}[a-z][\.\)]\s*(.+)/,   // a. or a)
+    /^\s+Follow.?up:\s*(.+)/i,     // Follow-up:
+  ];
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    // Check if it's a main question
+    let isQuestion = false;
+    let questionText = '';
+
+    for (const pattern of questionPatterns) {
+      const match = trimmed.match(pattern);
+      if (match) {
+        isQuestion = true;
+        questionText = match[1] || trimmed;
+        break;
+      }
+    }
+
+    // Check if line ends with a question mark (likely a question)
+    if (!isQuestion && trimmed.endsWith('?') && trimmed.length > 20) {
+      isQuestion = true;
+      questionText = trimmed;
+    }
+
+    if (isQuestion) {
+      // Save previous question
+      if (currentQuestion) {
+        questions.push(currentQuestion);
+      }
+      currentQuestion = {
+        text: questionText,
+        followUps: [],
+        timeAllocation: 5,
+        isRequired: false,
+        evaluationCriteria: '',
+      };
+    } else if (currentQuestion) {
+      // Check if it's a follow-up
+      let isFollowUp = false;
+      let followUpText = '';
+
+      for (const pattern of followUpPatterns) {
+        const match = line.match(pattern);
+        if (match) {
+          isFollowUp = true;
+          followUpText = match[1] || trimmed;
+          break;
+        }
+      }
+
+      // Also treat sub-items as follow-ups
+      if (!isFollowUp && line.startsWith('  ') && trimmed.endsWith('?')) {
+        isFollowUp = true;
+        followUpText = trimmed;
+      }
+
+      if (isFollowUp && followUpText) {
+        currentQuestion.followUps.push(followUpText);
+      }
+    }
+  }
+
+  // Don't forget the last question
+  if (currentQuestion) {
+    questions.push(currentQuestion);
+  }
+
+  return questions;
+}
+
+// Interviews
+router.get('/interviews', async (req, res) => {
+  try {
+    const company = await prisma.company.findFirst();
+    const companyId = company?.id;
+
+    const status = req.query.status as string;
+    const where: Record<string, unknown> = companyId ? { companyId } : {};
+    if (status && ['SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'NO_SHOW'].includes(status)) {
+      where.status = status;
+    }
+
+    const interviews = await prisma.interview.findMany({
+      where,
+      orderBy: { scheduledAt: 'desc' },
+      include: {
+        jobRole: { select: { id: true, title: true } },
+        sessions: {
+          include: {
+            manager: { select: { id: true, name: true } },
+          },
+        },
+        result: {
+          select: { overallScore: true, recommendation: true },
+        },
+      },
+    });
+
+    res.render('admin/interviews', {
+      token: res.locals.token,
+      interviews,
+      total: interviews.length,
+      currentStatus: status || 'all',
+      company,
+    });
+  } catch (err) {
+    logger.error({ err }, 'Interviews error');
+    res.render('admin/error', { error: 'Failed to load interviews', token: res.locals.token });
+  }
+});
+
+// New Interview Form
+router.get('/interviews/new', async (req, res) => {
+  try {
+    const company = await prisma.company.findFirst();
+    const companyId = company?.id;
+
+    const jobRoles = companyId
+      ? await prisma.jobRole.findMany({
+          where: { companyId, isActive: true },
+          orderBy: { title: 'asc' },
+        })
+      : [];
+
+    const managers = companyId
+      ? await prisma.user.findMany({
+          where: { companyId, isActive: true },
+          orderBy: { name: 'asc' },
+        })
+      : [];
+
+    res.render('admin/interview-new', {
+      token: res.locals.token,
+      jobRoles,
+      managers,
+      company,
+    });
+  } catch (err) {
+    logger.error({ err }, 'New interview form error');
+    res.render('admin/error', { error: 'Failed to load form', token: res.locals.token });
+  }
+});
+
+// Interview Detail
+router.get('/interviews/:id', async (req, res) => {
+  try {
+    const interview = await prisma.interview.findUnique({
+      where: { id: req.params.id },
+      include: {
+        jobRole: {
+          include: {
+            categories: {
+              orderBy: { order: 'asc' },
+              include: {
+                questions: {
+                  where: { isActive: true },
+                  orderBy: { order: 'asc' },
+                },
+              },
+            },
+          },
+        },
+        sessions: {
+          include: {
+            manager: { select: { id: true, name: true, email: true } },
+          },
+        },
+        result: true,
+        company: true,
+      },
+    });
+
+    if (!interview) {
+      return res.render('admin/error', { error: 'Interview not found', token: res.locals.token });
+    }
+
+    // Parse JSON fields
+    const interviewParsed = {
+      ...interview,
+      jobRole: {
+        ...interview.jobRole,
+        categories: interview.jobRole.categories.map(cat => ({
+          ...cat,
+          questions: cat.questions.map(q => ({
+            ...q,
+            followUps: JSON.parse(q.followUps) as string[],
+          })),
+        })),
+      },
+      result: interview.result
+        ? {
+            ...interview.result,
+            scorecard: JSON.parse(interview.result.scorecard),
+          }
+        : null,
+    };
+
+    res.render('admin/interview-detail', {
+      token: res.locals.token,
+      interview: interviewParsed,
+    });
+  } catch (err) {
+    logger.error({ err }, 'Interview detail error');
+    res.render('admin/error', { error: 'Failed to load interview', token: res.locals.token });
+  }
+});
+
+// Settings
+router.get('/settings', async (req, res) => {
+  try {
+    const config = await prisma.appConfig.findFirst();
+    res.render('admin/settings', {
+      token: res.locals.token,
+      config,
+    });
+  } catch (err) {
+    logger.error({ err }, 'Settings error');
+    res.render('admin/error', { error: 'Failed to load settings', token: res.locals.token });
+  }
+});
+
+// AI Config
+router.get('/ai-config', async (req, res) => {
+  try {
+    const config = await prisma.appConfig.findFirst();
+    res.render('admin/ai-config', {
+      token: res.locals.token,
+      config,
+    });
+  } catch (err) {
+    logger.error({ err }, 'AI Config error');
+    res.render('admin/error', { error: 'Failed to load AI config', token: res.locals.token });
+  }
+});
+
+// AI Agents
+router.get('/ai-agents', async (req, res) => {
+  try {
+    const agents = await prisma.aIAgent.findMany({
+      orderBy: { createdAt: 'desc' },
+    });
+    res.render('admin/ai-agents', {
+      token: res.locals.token,
+      agents,
+    });
+  } catch (err) {
+    logger.error({ err }, 'AI Agents error');
+    res.render('admin/error', { error: 'Failed to load AI agents', token: res.locals.token });
+  }
+});
+
+// AI Tools
+router.get('/ai-tools', async (req, res) => {
+  try {
+    const tools = await prisma.aITool.findMany({
+      orderBy: { createdAt: 'desc' },
+    });
+    res.render('admin/ai-tools', {
+      token: res.locals.token,
+      tools,
+    });
+  } catch (err) {
+    logger.error({ err }, 'AI Tools error');
+    res.render('admin/error', { error: 'Failed to load AI tools', token: res.locals.token });
+  }
+});
+
+// ============================================
+// Voices & Languages Configuration
+// ============================================
+
+router.get('/voices', async (req, res) => {
+  try {
+    const config = await prisma.appConfig.findFirst();
+
+    let languages = await prisma.language.findMany({
+      orderBy: { name: 'asc' }
+    });
+
+    // Create default languages if none exist
+    if (languages.length === 0) {
+      const defaultLangs = [
+        { code: 'en', name: 'English', nativeName: 'English', flag: '🇺🇸' },
+        { code: 'es', name: 'Spanish', nativeName: 'Español', flag: '🇪🇸' },
+        { code: 'de', name: 'German', nativeName: 'Deutsch', flag: '🇩🇪' },
+        { code: 'zh', name: 'Chinese (Mandarin)', nativeName: '中文', flag: '🇨🇳' },
+        { code: 'vi', name: 'Vietnamese', nativeName: 'Tiếng Việt', flag: '🇻🇳' },
+        { code: 'fr', name: 'French', nativeName: 'Français', flag: '🇫🇷' },
+        { code: 'it', name: 'Italian', nativeName: 'Italiano', flag: '🇮🇹' },
+        { code: 'pt', name: 'Portuguese', nativeName: 'Português', flag: '🇵🇹' },
+        { code: 'ja', name: 'Japanese', nativeName: '日本語', flag: '🇯🇵' },
+        { code: 'ko', name: 'Korean', nativeName: '한국어', flag: '🇰🇷' },
+        { code: 'ar', name: 'Arabic', nativeName: 'العربية', flag: '🇸🇦' },
+        { code: 'hi', name: 'Hindi', nativeName: 'हिन्दी', flag: '🇮🇳' },
+        { code: 'ru', name: 'Russian', nativeName: 'Русский', flag: '🇷🇺' },
+        { code: 'pl', name: 'Polish', nativeName: 'Polski', flag: '🇵🇱' },
+        { code: 'nl', name: 'Dutch', nativeName: 'Nederlands', flag: '🇳🇱' }
+      ];
+
+      for (const lang of defaultLangs) {
+        await prisma.language.create({ data: lang });
+      }
+
+      languages = await prisma.language.findMany({
+        orderBy: { name: 'asc' }
+      });
+    }
+
+    // Add docCount for each language (matching SellMeACar pattern)
+    const languagesWithDocs = languages.map(lang => ({
+      ...lang,
+      docCount: 0
+    }));
+    res.render('admin/voices', {
+      token: res.locals.token,
+      active: 'voices',
+      config: config || { selectedVoice: 'alloy', interviewMode: 'hybrid', maxInterviewMins: 60 },
+      languages: languagesWithDocs,
+      totalDocs: 0
+    });
+  } catch (err) {
+    logger.error({ err }, 'Voices page error');
+    res.render('admin/error', { error: 'Failed to load voices config', token: res.locals.token });
+  }
+});
+
+router.post('/voices/select', async (req, res) => {
+  try {
+    const { voice } = req.body;
+    await prisma.appConfig.updateMany({
+      data: { selectedVoice: voice }
+    });
+    res.json({ success: true });
+  } catch (err) {
+    logger.error({ err }, 'Voice select error');
+    res.status(500).json({ success: false, error: 'Failed to update voice' });
+  }
+});
+
+router.post('/voices/mode', async (req, res) => {
+  try {
+    const { mode } = req.body;
+    if (!['ai_only', 'hybrid'].includes(mode)) {
+      return res.status(400).json({ success: false, error: 'Invalid mode' });
+    }
+    await prisma.appConfig.updateMany({
+      data: { interviewMode: mode }
+    });
+    res.json({ success: true });
+  } catch (err) {
+    logger.error({ err }, 'Mode update error');
+    res.status(500).json({ success: false, error: 'Failed to update mode' });
+  }
+});
+router.post('/voices/difficulty', async (req, res) => {  try {    const { difficulty } = req.body;    if (!['easy', 'medium', 'hard', 'expert'].includes(difficulty)) {      return res.status(400).json({ success: false, error: 'Invalid difficulty' });    }    res.json({ success: true });  } catch (err) {    logger.error({ err }, 'Difficulty update error');    res.status(500).json({ success: false, error: 'Failed to update difficulty' });  }});
+
+router.post('/voices/language', async (req, res) => {
+  try {
+    const { code } = req.body;
+
+    // Language data mapping
+    const langData: Record<string, { name: string; nativeName: string; flag: string }> = {
+      en: { name: 'English', nativeName: 'English', flag: '🇺🇸' },
+      es: { name: 'Spanish', nativeName: 'Español', flag: '🇪🇸' },
+      fr: { name: 'French', nativeName: 'Français', flag: '🇫🇷' },
+      de: { name: 'German', nativeName: 'Deutsch', flag: '🇩🇪' },
+      it: { name: 'Italian', nativeName: 'Italiano', flag: '🇮🇹' },
+      pt: { name: 'Portuguese', nativeName: 'Português', flag: '🇵🇹' },
+      zh: { name: 'Chinese', nativeName: '中文', flag: '🇨🇳' },
+      ja: { name: 'Japanese', nativeName: '日本語', flag: '🇯🇵' },
+      ko: { name: 'Korean', nativeName: '한국어', flag: '🇰🇷' },
+      ar: { name: 'Arabic', nativeName: 'العربية', flag: '🇸🇦' },
+      hi: { name: 'Hindi', nativeName: 'हिन्दी', flag: '🇮🇳' },
+      ru: { name: 'Russian', nativeName: 'Русский', flag: '🇷🇺' },
+      vi: { name: 'Vietnamese', nativeName: 'Tiếng Việt', flag: '🇻🇳' },
+      pl: { name: 'Polish', nativeName: 'Polski', flag: '🇵🇱' },
+      nl: { name: 'Dutch', nativeName: 'Nederlands', flag: '🇳🇱' }
+    };
+
+    const data = langData[code];
+    if (!data) {
+      return res.redirect(`/admin/voices?token=${res.locals.token}&error=Invalid language code`);
+    }
+
+    const existing = await prisma.language.findUnique({ where: { code } });
+    if (existing) {
+      return res.redirect(`/admin/voices?token=${res.locals.token}&error=Language already exists`);
+    }
+
+    await prisma.language.create({
+      data: { code, ...data }
+    });
+    res.redirect(`/admin/voices?token=${res.locals.token}`);
+  } catch (err) {
+    logger.error({ err }, 'Add language error');
+    res.redirect(`/admin/voices?token=${res.locals.token}&error=Failed to add language`);
+  }
+});
+
+router.post('/voices/language/:id', async (req, res) => {
+  try {
+    const { enabled } = req.body;
+    await prisma.language.update({
+      where: { id: req.params.id },
+      data: { enabled: enabled === true || enabled === 'true' }
+    });
+    res.json({ success: true });
+  } catch (err) {
+    logger.error({ err }, 'Toggle language error');
+    res.status(500).json({ success: false, error: 'Failed to toggle language' });
+  }
+});
+
+router.delete('/voices/language/:id', async (req, res) => {
+  try {
+    await prisma.language.delete({ where: { id: req.params.id } });
+    res.json({ success: true });
+  } catch (err) {
+    logger.error({ err }, 'Delete language error');
+    res.status(500).json({ success: false, error: 'Failed to delete language' });
+  }
+});
+
+// Logic Rules
+router.get('/logic-rules', async (req, res) => {
+  try {
+    const rules = await prisma.logicRule.findMany({
+      orderBy: { priority: 'desc' },
+    });
+    res.render('admin/logic-rules', {
+      token: res.locals.token,
+      rules,
+    });
+  } catch (err) {
+    logger.error({ err }, 'Logic Rules error');
+    res.render('admin/error', { error: 'Failed to load logic rules', token: res.locals.token });
+  }
+});
+
+// Functions
+router.get('/functions', async (req, res) => {
+  try {
+    const functions = await prisma.function.findMany({
+      orderBy: { name: 'asc' },
+    });
+    res.render('admin/functions', {
+      token: res.locals.token,
+      functions,
+    });
+  } catch (err) {
+    logger.error({ err }, 'Functions error');
+    res.render('admin/error', { error: 'Failed to load functions', token: res.locals.token });
+  }
+});
+
+// SMS Settings
+router.get('/sms-settings', async (req, res) => {
+  try {
+    const settings = await prisma.sMSSettings.findFirst();
+    res.render('admin/sms-settings', {
+      token: res.locals.token,
+      settings,
+    });
+  } catch (err) {
+    logger.error({ err }, 'SMS Settings error');
+    res.render('admin/error', { error: 'Failed to load SMS settings', token: res.locals.token });
+  }
+});
+
+// Call Transfer
+router.get('/call-transfer', async (req, res) => {
+  try {
+    const transfers = await prisma.callTransfer.findMany({
+      orderBy: { priority: 'desc' },
+    });
+    res.render('admin/call-transfer', {
+      token: res.locals.token,
+      transfers,
+    });
+  } catch (err) {
+    logger.error({ err }, 'Call Transfer error');
+    res.render('admin/error', { error: 'Failed to load call transfers', token: res.locals.token });
+  }
+});
+
+// DTMF Menu
+router.get('/dtmf-menu', async (req, res) => {
+  try {
+    const menus = await prisma.dTMFMenu.findMany({
+      orderBy: { digit: 'asc' },
+    });
+    res.render('admin/dtmf-menu', {
+      token: res.locals.token,
+      menus,
+    });
+  } catch (err) {
+    logger.error({ err }, 'DTMF Menu error');
+    res.render('admin/error', { error: 'Failed to load DTMF menu', token: res.locals.token });
+  }
+});
+
+// Webhooks
+router.get('/webhooks', async (req, res) => {
+  try {
+    const webhooks = await prisma.webhook.findMany({
+      orderBy: { createdAt: 'desc' },
+    });
+    res.render('admin/webhooks', {
+      token: res.locals.token,
+      webhooks,
+    });
+  } catch (err) {
+    logger.error({ err }, 'Webhooks error');
+    res.render('admin/error', { error: 'Failed to load webhooks', token: res.locals.token });
+  }
+});
+
+// Payments
+router.get('/payments', async (req, res) => {
+  try {
+    const payments = await prisma.payment.findMany({
+      orderBy: { createdAt: 'desc' },
+    });
+    const totalRevenue = payments
+      .filter(p => p.status === 'completed')
+      .reduce((sum, p) => sum + p.amount, 0);
+    res.render('admin/payments', {
+      token: res.locals.token,
+      payments,
+      totalRevenue,
+    });
+  } catch (err) {
+    logger.error({ err }, 'Payments error');
+    res.render('admin/error', { error: 'Failed to load payments', token: res.locals.token });
+  }
+});
+
+router.post('/settings', async (req, res) => {
+  try {
+    const {
+      defaultVoice,
+      defaultDuration,
+      maxInterviewMins,
+      aiIntroduction,
+      transcriptionEnabled,
+      recordingEnabled,
+      autoSummaryEnabled,
+      autoScoreEnabled,
+      sentimentAnalysis,
+      emailNotifications,
+      reminderHours,
+    } = req.body;
+
+    // Check if config exists
+    const existing = await prisma.appConfig.findFirst();
+
+    if (existing) {
+      await prisma.appConfig.update({
+        where: { id: existing.id },
+        data: {
+          selectedVoice: defaultVoice || 'alloy',
+          maxInterviewMins: parseInt(maxInterviewMins) || 120,
+          transcriptionEnabled: transcriptionEnabled === true || transcriptionEnabled === 'true',
+          autoSummaryEnabled: autoSummaryEnabled === true || autoSummaryEnabled === 'true',
+        },
+      });
+    } else {
+      await prisma.appConfig.create({
+        data: {
+          appName: 'AI Recruiting Assistant',
+          selectedVoice: defaultVoice || 'alloy',
+          maxInterviewMins: parseInt(maxInterviewMins) || 120,
+          transcriptionEnabled: transcriptionEnabled === true || transcriptionEnabled === 'true',
+          autoSummaryEnabled: autoSummaryEnabled === true || autoSummaryEnabled === 'true',
+        },
+      });
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    logger.error({ err }, 'Settings save error');
+    res.status(500).json({ success: false, error: 'Failed to save settings' });
+  }
+});
+
+export default router;
+
+// ============================================
+// Microsoft Teams Integration
+// ============================================
+
+router.get('/teams', async (req, res) => {
+  try {
+    const company = await prisma.company.findFirst();
+    const companyId = company?.id;
+
+    // Check if Teams is configured
+    const teamsConfig = {
+      connected: !!(process.env.MICROSOFT_TENANT_ID && process.env.MICROSOFT_CLIENT_ID && process.env.MICROSOFT_CLIENT_SECRET),
+      tenantId: process.env.MICROSOFT_TENANT_ID ? '****' + process.env.MICROSOFT_TENANT_ID.slice(-4) : '',
+      clientId: process.env.MICROSOFT_CLIENT_ID ? '****' + process.env.MICROSOFT_CLIENT_ID.slice(-4) : '',
+    };
+
+    // Get scheduled interviews that could be linked to Teams
+    const interviews = companyId
+      ? await prisma.interview.findMany({
+          where: {
+            companyId,
+            status: 'SCHEDULED',
+            scheduledAt: { gte: new Date() },
+          },
+          orderBy: { scheduledAt: 'asc' },
+          take: 50,
+          include: {
+            jobRole: { select: { title: true } },
+          },
+        })
+      : [];
+
+    // For now, meetings and subscriptions are empty until we implement Teams meeting storage
+    const meetings: Array<{
+      id: string;
+      subject: string;
+      candidateName: string;
+      candidateEmail: string;
+      startDateTime: string;
+      duration: number;
+      status: string;
+      joinUrl: string;
+    }> = [];
+    const subscriptions: Array<{
+      id: string;
+      resource: string;
+      changeType: string;
+      expirationDateTime: string;
+    }> = [];
+
+    const stats = {
+      scheduledMeetings: meetings.length,
+      activeSubscriptions: subscriptions.length,
+    };
+
+    res.render('admin/teams', {
+      token: res.locals.token,
+      teamsConfig,
+      meetings,
+      subscriptions,
+      interviews,
+      stats,
+    });
+  } catch (err) {
+    logger.error({ err }, 'Teams page error');
+    res.render('admin/error', { error: 'Failed to load Teams integration', token: res.locals.token });
+  }
+});
+
+router.get('/teams/test-connection', async (req, res) => {
+  try {
+    const tenantId = process.env.MICROSOFT_TENANT_ID;
+    const clientId = process.env.MICROSOFT_CLIENT_ID;
+    const clientSecret = process.env.MICROSOFT_CLIENT_SECRET;
+
+    if (!tenantId || !clientId || !clientSecret) {
+      return res.json({
+        success: false,
+        error: 'Microsoft Graph API credentials not configured',
+      });
+    }
+
+    // Try to get a token
+    const tokenUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
+    const params = new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      scope: 'https://graph.microsoft.com/.default',
+      grant_type: 'client_credentials',
+    });
+
+    const response = await fetch(tokenUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params,
+    });
+
+    if (response.ok) {
+      res.json({ success: true, message: 'Connection successful' });
+    } else {
+      const error = await response.json();
+      res.json({
+        success: false,
+        error: error.error_description || 'Authentication failed',
+      });
+    }
+  } catch (err) {
+    logger.error({ err }, 'Teams connection test error');
+    res.json({ success: false, error: 'Connection test failed' });
+  }
+});

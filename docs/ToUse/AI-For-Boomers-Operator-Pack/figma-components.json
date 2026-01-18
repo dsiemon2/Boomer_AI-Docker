@@ -1,0 +1,149 @@
+{
+  "metadata": {
+    "name": "AI for Boomers Component Library",
+    "version": "1.0.0",
+    "notes": "Generic component spec JSON for use with design system tooling. Map fields to your preferred Figma import plugin/workflow."
+  },
+  "components": [
+    {
+      "name": "Button/Primary",
+      "type": "button",
+      "properties": {
+        "variant": "primary",
+        "sizes": [
+          "sm",
+          "md",
+          "lg"
+        ],
+        "states": [
+          "default",
+          "hover",
+          "pressed",
+          "disabled"
+        ],
+        "icon": {
+          "allowed": true,
+          "position": [
+            "left",
+            "right"
+          ]
+        }
+      },
+      "tokens": {
+        "bg": "color.primary.blue",
+        "text": "color.neutral.light",
+        "radius": 12,
+        "paddingX": "spacing.md",
+        "paddingY": "spacing.sm",
+        "minHeight": 44
+      }
+    },
+    {
+      "name": "Button/Secondary",
+      "type": "button",
+      "properties": {
+        "variant": "secondary",
+        "sizes": [
+          "sm",
+          "md",
+          "lg"
+        ],
+        "states": [
+          "default",
+          "hover",
+          "pressed",
+          "disabled"
+        ]
+      },
+      "tokens": {
+        "bg": "color.neutral.light",
+        "border": "color.primary.blue",
+        "text": "color.primary.blue",
+        "radius": 12,
+        "paddingX": "spacing.md",
+        "paddingY": "spacing.sm",
+        "minHeight": 44
+      }
+    },
+    {
+      "name": "Card/Default",
+      "type": "card",
+      "properties": {
+        "elevation": [
+          "none",
+          "sm",
+          "md"
+        ],
+        "states": [
+          "default"
+        ]
+      },
+      "tokens": {
+        "bg": "color.neutral.light",
+        "text": "color.neutral.dark",
+        "radius": 16,
+        "padding": "spacing.lg"
+      }
+    },
+    {
+      "name": "Banner/Notification",
+      "type": "banner",
+      "properties": {
+        "variants": [
+          "info",
+          "warning",
+          "error"
+        ],
+        "dismissible": true
+      },
+      "tokens": {
+        "infoBg": "color.primary.teal",
+        "warningBg": "color.status.warning",
+        "errorBg": "color.status.error",
+        "text": "color.neutral.light",
+        "radius": 14,
+        "padding": "spacing.md",
+        "minHeight": 44
+      }
+    },
+    {
+      "name": "Voice/PressToTalk",
+      "type": "voice_button",
+      "properties": {
+        "states": [
+          "idle",
+          "listening",
+          "processing",
+          "error"
+        ]
+      },
+      "tokens": {
+        "idleBg": "color.primary.blue",
+        "listeningBg": "color.primary.teal",
+        "errorBg": "color.status.error",
+        "iconColor": "color.neutral.light",
+        "radius": 999,
+        "size": 64,
+        "minTapTarget": 44
+      }
+    },
+    {
+      "name": "Modal/Confirm",
+      "type": "modal",
+      "properties": {
+        "actions": [
+          "confirm",
+          "cancel"
+        ],
+        "closeOnBackdrop": false
+      },
+      "tokens": {
+        "bg": "color.neutral.light",
+        "title": "color.neutral.dark",
+        "body": "color.neutral.dark",
+        "radius": 20,
+        "padding": "spacing.lg"
+      }
+    }
+  ]
+}

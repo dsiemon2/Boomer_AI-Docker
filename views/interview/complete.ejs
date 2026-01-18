@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Interview Complete - AI Interview</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+  <style>
+    body {
+      background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .complete-card {
+      max-width: 500px;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    .success-icon {
+      font-size: 4rem;
+      color: #28a745;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card complete-card mx-auto">
+      <div class="card-body text-center p-5">
+        <i class="bi bi-check-circle success-icon mb-4"></i>
+        <h2 class="mb-3">Interview Complete!</h2>
+        <p class="text-muted mb-2">Thank you, <strong><%= candidateName %></strong></p>
+        <p class="text-muted mb-4">
+          Your interview for <strong><%= jobRole %></strong> at <strong><%= company %></strong> has been completed successfully.
+        </p>
+        <div class="alert alert-info">
+          <i class="bi bi-info-circle me-2"></i>
+          Our team will review your responses and contact you regarding next steps.
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

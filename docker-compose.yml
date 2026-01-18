@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: boomerai_proxy
+    ports:
+      - "8088:80"
+    volumes:
+      - ./docker/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      app:
+        condition: service_healthy
+      admin:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - boomerai_net
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: boomerai_app
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=file:/app/data/app.db
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ADMIN_TOKEN=${ADMIN_TOKEN:-admin}
+      - PORT=3000
+    volumes:
+      - app_data:/app/data
+    command: ["app"]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - boomerai_net
+
+  admin:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: boomerai_admin
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=file:/app/data/app.db
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ADMIN_TOKEN=${ADMIN_TOKEN:-admin}
+      - ADMIN_PORT=3001
+    volumes:
+      - app_data:/app/data
+    depends_on:
+      app:
+        condition: service_healthy
+    command: ["admin"]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3001/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - boomerai_net
+
+volumes:
+  app_data:
+    name: boomerai_data
+
+networks:
+  boomerai_net:
+    driver: bridge

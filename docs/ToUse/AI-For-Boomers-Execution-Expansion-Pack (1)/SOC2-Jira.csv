@@ -1,0 +1,8 @@
+Issue Type,Summary,Description,Epic
+Epic,SOC2 Security,,
+Story,Implement RBAC,Role-based access control across services,SOC2 Security
+Story,Enable MFA,Multi-factor authentication for admins,SOC2 Security
+Story,Audit Logging,Centralized audit logs,SOC2 Security
+Epic,SOC2 Availability,,
+Story,Monitoring,Uptime and service monitoring,SOC2 Availability
+Story,Incident Response Plan,Document and test IR plan,SOC2 Availability

@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Caregiver Dashboard - Boomer AI</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+  <style>
+    body {
+      background: #f8f9fa;
+      font-size: 1.1rem;
+    }
+    .navbar {
+      background: #2d5a3d !important;
+    }
+    .card {
+      border-radius: 15px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .user-card {
+      border-left: 4px solid #2d5a3d;
+    }
+    .user-card:hover {
+      background: #f8f9fa;
+    }
+    .badge-permission {
+      font-size: 0.85rem;
+    }
+    .status-pending { color: #ffc107; }
+    .status-active { color: #198754; }
+    .status-revoked { color: #dc3545; }
+    .btn-primary {
+      background: #2d5a3d;
+      border-color: #2d5a3d;
+    }
+    .btn-primary:hover {
+      background: #1a3d2e;
+      border-color: #1a3d2e;
+    }
+    .section-title {
+      font-size: 1.3rem;
+      font-weight: 600;
+      color: #2d5a3d;
+      margin-bottom: 1rem;
+    }
+    .empty-state {
+      text-align: center;
+      padding: 3rem;
+      color: #6c757d;
+    }
+    .empty-state i {
+      font-size: 4rem;
+      margin-bottom: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar navbar-dark mb-4">
+    <div class="container">
+      <a class="navbar-brand" href="/">
+        <i class="bi bi-heart-pulse me-2"></i>Boomer AI
+      </a>
+      <span class="navbar-text text-white">
+        <i class="bi bi-people me-1"></i>Caregiver Dashboard
+      </span>
+      <div class="dropdown">
+        <button class="btn btn-outline-light dropdown-toggle" type="button" data-bs-toggle="dropdown">
+          <i class="bi bi-person-circle me-1"></i><%= user.name %>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end">
+          <li><a class="dropdown-item" href="/"><i class="bi bi-mic me-2"></i>Voice Assistant</a></li>
+          <li><a class="dropdown-item" href="/account"><i class="bi bi-person-gear me-2"></i>Account</a></li>
+          <li><hr class="dropdown-divider"></li>
+          <li><a class="dropdown-item" href="/auth/logout"><i class="bi bi-box-arrow-right me-2"></i>Sign Out</a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    <!-- Pending Invitations -->
+    <div class="mb-5">
+      <h2 class="section-title"><i class="bi bi-envelope me-2"></i>Pending Invitations</h2>
+      <div id="invitations-container">
+        <div class="text-center py-3">
+          <div class="spinner-border text-secondary" role="status"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- People I'm Caring For -->
+    <div class="mb-5">
+      <h2 class="section-title"><i class="bi bi-people me-2"></i>People I'm Caring For</h2>
+      <div id="caring-for-container">
+        <div class="text-center py-3">
+          <div class="spinner-border text-secondary" role="status"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- My Caregivers Section -->
+    <div class="mb-5">
+      <h2 class="section-title"><i class="bi bi-person-plus me-2"></i>My Caregivers</h2>
+      <div class="mb-3">
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#inviteModal">
+          <i class="bi bi-person-plus me-2"></i>Invite a Caregiver
+        </button>
+      </div>
+      <div id="my-caregivers-container">
+        <div class="text-center py-3">
+          <div class="spinner-border text-secondary" role="status"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Invite Caregiver Modal -->
+  <div class="modal fade" id="inviteModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bi bi-person-plus me-2"></i>Invite a Caregiver</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <form id="inviteForm">
+            <div class="mb-3">
+              <label for="caregiverEmail" class="form-label">Caregiver's Email</label>
+              <input type="email" class="form-control" id="caregiverEmail" required
+                     placeholder="caregiver@example.com">
+              <div class="form-text">They must have a Boomer AI account</div>
+            </div>
+            <div class="mb-3">
+              <label for="caregiverRole" class="form-label">Access Level</label>
+              <select class="form-select" id="caregiverRole">
+                <option value="VIEW_ONLY">View Only (can see your information)</option>
+                <option value="EDIT">Edit (can make changes)</option>
+                <option value="EMERGENCY_ONLY">Emergency Only (limited access)</option>
+              </select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Permissions</label>
+              <div class="form-check">
+                <input type="checkbox" class="form-check-input" id="permCalendar" checked>
+                <label class="form-check-label" for="permCalendar">Calendar & Appointments</label>
+              </div>
+              <div class="form-check">
+                <input type="checkbox" class="form-check-input" id="permMedications" checked>
+                <label class="form-check-label" for="permMedications">Medications</label>
+              </div>
+              <div class="form-check">
+                <input type="checkbox" class="form-check-input" id="permContacts" checked>
+                <label class="form-check-label" for="permContacts">Contacts</label>
+              </div>
+              <div class="form-check">
+                <input type="checkbox" class="form-check-input" id="permNotes">
+                <label class="form-check-label" for="permNotes">Personal Notes</label>
+              </div>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" onclick="sendInvitation()">
+            <i class="bi bi-send me-2"></i>Send Invitation
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- View User Modal -->
+  <div class="modal fade" id="viewUserModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="viewUserModalTitle">User Details</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body" id="viewUserModalBody">
+          <div class="text-center py-3">
+            <div class="spinner-border text-secondary" role="status"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // Load data on page load
+    document.addEventListener('DOMContentLoaded', () => {
+      loadInvitations();
+      loadCaringFor();
+      loadMyCaregivers();
+    });
+
+    // Load pending invitations
+    async function loadInvitations() {
+      try {
+        const res = await fetch('/api/caregivers/invitations');
+        const data = await res.json();
+        const container = document.getElementById('invitations-container');
+
+        if (data.success && data.data.invitations.length > 0) {
+          container.innerHTML = data.data.invitations.map(inv => `
+            <div class="card mb-3 user-card">
+              <div class="card-body d-flex justify-content-between align-items-center">
+                <div>
+                  <h5 class="mb-1">${inv.userName}</h5>
+                  <p class="mb-1 text-muted">${inv.userEmail}</p>
+                  <small class="text-muted">Role: ${inv.role} | Invited: ${new Date(inv.invitedAt).toLocaleDateString()}</small>
+                </div>
+                <div>
+                  <button class="btn btn-success btn-sm me-2" onclick="acceptInvitation('${inv.id}')">
+                    <i class="bi bi-check-lg"></i> Accept
+                  </button>
+                  <button class="btn btn-outline-danger btn-sm" onclick="declineInvitation('${inv.id}')">
+                    <i class="bi bi-x-lg"></i> Decline
+                  </button>
+                </div>
+              </div>
+            </div>
+          `).join('');
+        } else {
+          container.innerHTML = `
+            <div class="empty-state">
+              <i class="bi bi-envelope-open"></i>
+              <p>No pending invitations</p>
+            </div>
+          `;
+        }
+      } catch (error) {
+        console.error('Error loading invitations:', error);
+      }
+    }
+
+    // Load people I'm caring for
+    async function loadCaringFor() {
+      try {
+        const res = await fetch('/api/caregivers/caring-for');
+        const data = await res.json();
+        const container = document.getElementById('caring-for-container');
+
+        if (data.success && data.data.users.length > 0) {
+          container.innerHTML = data.data.users.map(u => `
+            <div class="card mb-3 user-card">
+              <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                  <div>
+                    <h5 class="mb-1">${u.name}</h5>
+                    <p class="mb-1 text-muted">${u.email}</p>
+                    ${u.phone ? `<small class="text-muted"><i class="bi bi-telephone me-1"></i>${u.phone}</small>` : ''}
+                  </div>
+                  <div>
+                    <button class="btn btn-primary btn-sm me-2" onclick="viewUserData('${u.userId}', '${u.name}')">
+                      <i class="bi bi-eye me-1"></i>View
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="stopCaring('${u.accessId}')">
+                      <i class="bi bi-x-circle me-1"></i>Leave
+                    </button>
+                  </div>
+                </div>
+                <div class="mt-2">
+                  <span class="badge bg-secondary badge-permission me-1">Role: ${u.role}</span>
+                  ${u.permissions.calendar ? '<span class="badge bg-info badge-permission me-1"><i class="bi bi-calendar"></i> Calendar</span>' : ''}
+                  ${u.permissions.medications ? '<span class="badge bg-warning text-dark badge-permission me-1"><i class="bi bi-capsule"></i> Meds</span>' : ''}
+                  ${u.permissions.contacts ? '<span class="badge bg-success badge-permission me-1"><i class="bi bi-people"></i> Contacts</span>' : ''}
+                  ${u.permissions.notes ? '<span class="badge bg-primary badge-permission"><i class="bi bi-journal"></i> Notes</span>' : ''}
+                </div>
+              </div>
+            </div>
+          `).join('');
+        } else {
+          container.innerHTML = `
+            <div class="empty-state">
+              <i class="bi bi-people"></i>
+              <p>You're not caring for anyone yet</p>
+            </div>
+          `;
+        }
+      } catch (error) {
+        console.error('Error loading caring-for:', error);
+      }
+    }
+
+    // Load my caregivers
+    async function loadMyCaregivers() {
+      try {
+        const res = await fetch('/api/caregivers/my-caregivers');
+        const data = await res.json();
+        const container = document.getElementById('my-caregivers-container');
+
+        if (data.success && data.data.caregivers.length > 0) {
+          container.innerHTML = data.data.caregivers.map(c => `
+            <div class="card mb-3 user-card">
+              <div class="card-body d-flex justify-content-between align-items-center">
+                <div>
+                  <h5 class="mb-1">${c.name}</h5>
+                  <p class="mb-1 text-muted">${c.email}</p>
+                  <span class="status-${c.status.toLowerCase()}">${c.status}</span>
+                </div>
+                ${c.status === 'ACTIVE' ? `
+                  <button class="btn btn-outline-danger btn-sm" onclick="revokeAccess('${c.id}')">
+                    <i class="bi bi-x-circle me-1"></i>Revoke Access
+                  </button>
+                ` : ''}
+              </div>
+            </div>
+          `).join('');
+        } else {
+          container.innerHTML = `
+            <div class="empty-state">
+              <i class="bi bi-person-plus"></i>
+              <p>You haven't added any caregivers yet</p>
+            </div>
+          `;
+        }
+      } catch (error) {
+        console.error('Error loading caregivers:', error);
+      }
+    }
+
+    // Send invitation
+    async function sendInvitation() {
+      const email = document.getElementById('caregiverEmail').value;
+      const role = document.getElementById('caregiverRole').value;
+      const permissions = {
+        calendar: document.getElementById('permCalendar').checked,
+        medications: document.getElementById('permMedications').checked,
+        contacts: document.getElementById('permContacts').checked,
+        notes: document.getElementById('permNotes').checked,
+      };
+
+      try {
+        const res = await fetch('/api/caregivers/invite', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, role, permissions }),
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          alert('Invitation sent successfully!');
+          bootstrap.Modal.getInstance(document.getElementById('inviteModal')).hide();
+          document.getElementById('inviteForm').reset();
+          loadMyCaregivers();
+        } else {
+          alert(data.error || 'Failed to send invitation');
+        }
+      } catch (error) {
+        alert('Error sending invitation');
+      }
+    }
+
+    // Accept invitation
+    async function acceptInvitation(id) {
+      if (!confirm('Accept this caregiver invitation?')) return;
+
+      try {
+        const res = await fetch(`/api/caregivers/invitations/${id}/accept`, { method: 'POST' });
+        const data = await res.json();
+
+        if (data.success) {
+          loadInvitations();
+          loadCaringFor();
+        } else {
+          alert(data.error || 'Failed to accept invitation');
+        }
+      } catch (error) {
+        alert('Error accepting invitation');
+      }
+    }
+
+    // Decline invitation
+    async function declineInvitation(id) {
+      if (!confirm('Decline this caregiver invitation?')) return;
+
+      try {
+        const res = await fetch(`/api/caregivers/invitations/${id}/decline`, { method: 'POST' });
+        const data = await res.json();
+
+        if (data.success) {
+          loadInvitations();
+        } else {
+          alert(data.error || 'Failed to decline invitation');
+        }
+      } catch (error) {
+        alert('Error declining invitation');
+      }
+    }
+
+    // Revoke caregiver access
+    async function revokeAccess(id) {
+      if (!confirm('Are you sure you want to revoke this caregiver\'s access?')) return;
+
+      try {
+        const res = await fetch(`/api/caregivers/${id}/revoke`, { method: 'POST' });
+        const data = await res.json();
+
+        if (data.success) {
+          loadMyCaregivers();
+        } else {
+          alert(data.error || 'Failed to revoke access');
+        }
+      } catch (error) {
+        alert('Error revoking access');
+      }
+    }
+
+    // Stop caring for someone
+    async function stopCaring(accessId) {
+      if (!confirm('Stop being a caregiver for this person?')) return;
+
+      try {
+        const res = await fetch(`/api/caregivers/stop-caring/${accessId}`, { method: 'POST' });
+        const data = await res.json();
+
+        if (data.success) {
+          loadCaringFor();
+        } else {
+          alert(data.error || 'Failed to remove access');
+        }
+      } catch (error) {
+        alert('Error removing access');
+      }
+    }
+
+    // View user data
+    async function viewUserData(userId, userName) {
+      const modal = new bootstrap.Modal(document.getElementById('viewUserModal'));
+      document.getElementById('viewUserModalTitle').textContent = userName + "'s Information";
+      document.getElementById('viewUserModalBody').innerHTML = `
+        <div class="text-center py-3">
+          <div class="spinner-border text-secondary" role="status"></div>
+        </div>
+      `;
+      modal.show();
+
+      try {
+        const res = await fetch(`/api/caregivers/view/${userId}`);
+        const data = await res.json();
+
+        if (data.success) {
+          let html = '';
+
+          // Appointments
+          if (data.data.permissions.calendar && data.data.appointments) {
+            html += `
+              <h6 class="mt-3"><i class="bi bi-calendar me-2"></i>Upcoming Appointments</h6>
+              ${data.data.appointments.length > 0 ? `
+                <ul class="list-group mb-3">
+                  ${data.data.appointments.slice(0, 5).map(apt => `
+                    <li class="list-group-item">
+                      <strong>${apt.title}</strong>
+                      <br><small class="text-muted">${new Date(apt.startAt).toLocaleString()}</small>
+                    </li>
+                  `).join('')}
+                </ul>
+              ` : '<p class="text-muted">No upcoming appointments</p>'}
+            `;
+          }
+
+          // Medications
+          if (data.data.permissions.medications && data.data.medications) {
+            html += `
+              <h6 class="mt-3"><i class="bi bi-capsule me-2"></i>Medications</h6>
+              ${data.data.medications.length > 0 ? `
+                <ul class="list-group mb-3">
+                  ${data.data.medications.map(med => `
+                    <li class="list-group-item">
+                      <strong>${med.name}</strong> ${med.dosage ? `- ${med.dosage}` : ''}
+                      <br><small class="text-muted">Schedule: ${JSON.parse(med.schedule).times?.join(', ') || 'As needed'}</small>
+                    </li>
+                  `).join('')}
+                </ul>
+              ` : '<p class="text-muted">No active medications</p>'}
+            `;
+          }
+
+          // Contacts
+          if (data.data.permissions.contacts && data.data.contacts) {
+            html += `
+              <h6 class="mt-3"><i class="bi bi-people me-2"></i>Contacts</h6>
+              ${data.data.contacts.length > 0 ? `
+                <ul class="list-group mb-3">
+                  ${data.data.contacts.slice(0, 5).map(c => `
+                    <li class="list-group-item">
+                      <strong>${c.name}</strong>
+                      ${c.isEmergencyContact ? '<span class="badge bg-danger ms-2">Emergency</span>' : ''}
+                      <br><small class="text-muted">${c.relationship} ${c.phone ? `| ${c.phone}` : ''}</small>
+                    </li>
+                  `).join('')}
+                </ul>
+              ` : '<p class="text-muted">No contacts</p>'}
+            `;
+          }
+
+          // Notes
+          if (data.data.permissions.notes && data.data.notes) {
+            html += `
+              <h6 class="mt-3"><i class="bi bi-journal me-2"></i>Notes</h6>
+              ${data.data.notes.length > 0 ? `
+                <ul class="list-group mb-3">
+                  ${data.data.notes.slice(0, 5).map(n => `
+                    <li class="list-group-item">
+                      ${n.title ? `<strong>${n.title}</strong><br>` : ''}
+                      <small>${n.body.substring(0, 100)}${n.body.length > 100 ? '...' : ''}</small>
+                    </li>
+                  `).join('')}
+                </ul>
+              ` : '<p class="text-muted">No notes</p>'}
+            `;
+          }
+
+          document.getElementById('viewUserModalBody').innerHTML = html || '<p>No data available</p>';
+        } else {
+          document.getElementById('viewUserModalBody').innerHTML = `
+            <div class="alert alert-danger">${data.error || 'Failed to load data'}</div>
+          `;
+        }
+      } catch (error) {
+        document.getElementById('viewUserModalBody').innerHTML = `
+          <div class="alert alert-danger">Error loading data</div>
+        `;
+      }
+    }
+  </script>
+</body>
+</html>

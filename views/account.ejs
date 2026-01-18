@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Account Settings - Boomer AI</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+  <style>
+    body {
+      background: #f8f9fa;
+      font-size: 1.1rem;
+    }
+    .navbar {
+      background: #2d5a3d !important;
+    }
+    .card {
+      border-radius: 15px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+    }
+    .nav-pills .nav-link {
+      color: #495057;
+      padding: 1rem 1.25rem;
+      border-radius: 10px;
+      font-weight: 500;
+    }
+    .nav-pills .nav-link:hover {
+      background: rgba(45, 90, 61, 0.1);
+    }
+    .nav-pills .nav-link.active {
+      background: #2d5a3d;
+      color: white;
+    }
+    .nav-pills .nav-link i {
+      margin-right: 0.75rem;
+    }
+    .section-title {
+      font-size: 1.4rem;
+      font-weight: 600;
+      color: #2d5a3d;
+      margin-bottom: 1.5rem;
+    }
+    .setting-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 0;
+      border-bottom: 1px solid #e9ecef;
+    }
+    .setting-row:last-child {
+      border-bottom: none;
+    }
+    .btn-primary {
+      background: #2d5a3d;
+      border-color: #2d5a3d;
+    }
+    .btn-primary:hover {
+      background: #1a3d2e;
+      border-color: #1a3d2e;
+    }
+    .btn-outline-primary {
+      color: #2d5a3d;
+      border-color: #2d5a3d;
+    }
+    .btn-outline-primary:hover {
+      background: #2d5a3d;
+      color: white;
+    }
+    .payment-card {
+      background: linear-gradient(135deg, #2d5a3d 0%, #1a3d2e 100%);
+      color: white;
+      padding: 1.5rem;
+      border-radius: 12px;
+      position: relative;
+    }
+    .payment-card.default {
+      border: 3px solid #22c55e;
+    }
+    .device-row {
+      display: flex;
+      align-items: center;
+      padding: 1rem;
+      border-radius: 10px;
+      border: 2px solid #e9ecef;
+      margin-bottom: 0.75rem;
+    }
+    .device-row.current {
+      border-color: #2d5a3d;
+      background: rgba(45, 90, 61, 0.05);
+    }
+    .notification-group {
+      margin-bottom: 2rem;
+    }
+    .notification-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.75rem 0;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .toast-container {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 1050;
+    }
+  </style>
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar navbar-dark mb-4">
+    <div class="container">
+      <a class="navbar-brand" href="/">
+        <i class="bi bi-heart-pulse me-2"></i>Boomer AI
+      </a>
+      <span class="navbar-text text-white">
+        <i class="bi bi-person-gear me-1"></i>Account Settings
+      </span>
+      <div class="dropdown">
+        <button class="btn btn-outline-light dropdown-toggle" type="button" data-bs-toggle="dropdown">
+          <i class="bi bi-person-circle me-1"></i><%= user.name %>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end">
+          <li><a class="dropdown-item" href="/"><i class="bi bi-mic me-2"></i>Voice Assistant</a></li>
+          <li><a class="dropdown-item" href="/caregiver"><i class="bi bi-people me-2"></i>Caregiver</a></li>
+          <li><hr class="dropdown-divider"></li>
+          <li><a class="dropdown-item" href="/auth/logout"><i class="bi bi-box-arrow-right me-2"></i>Sign Out</a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <div class="container pb-5">
+    <div class="row">
+      <!-- Sidebar Navigation -->
+      <div class="col-lg-3 mb-4">
+        <div class="card">
+          <div class="card-body">
+            <nav class="nav nav-pills flex-column">
+              <a class="nav-link active" data-bs-toggle="pill" href="#loginSecurity">
+                <i class="bi bi-shield-lock"></i>Login & Security
+              </a>
+              <a class="nav-link" data-bs-toggle="pill" href="#paymentOptions">
+                <i class="bi bi-credit-card"></i>Payment Options
+              </a>
+              <a class="nav-link" data-bs-toggle="pill" href="#notifications">
+                <i class="bi bi-bell"></i>Notifications
+              </a>
+              <a class="nav-link" data-bs-toggle="pill" href="#devices">
+                <i class="bi bi-laptop"></i>Your Devices
+              </a>
+              <a class="nav-link" data-bs-toggle="pill" href="#subscription">
+                <i class="bi bi-gem"></i>Subscription
+              </a>
+            </nav>
+          </div>
+        </div>
+      </div>
+
+      <!-- Content Area -->
+      <div class="col-lg-9">
+        <div class="tab-content">
+          <!-- Login & Security -->
+          <div class="tab-pane fade show active" id="loginSecurity">
+            <div class="card">
+              <div class="card-body">
+                <h4 class="section-title"><i class="bi bi-shield-lock me-2"></i>Login & Security</h4>
+
+                <!-- Name -->
+                <div class="setting-row">
+                  <div>
+                    <h6 class="mb-1">Name</h6>
+                    <p class="mb-0 text-muted" id="displayName"><%= user.name %></p>
+                  </div>
+                  <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#editNameModal">Edit</button>
+                </div>
+
+                <!-- Email -->
+                <div class="setting-row">
+                  <div>
+                    <h6 class="mb-1">Email</h6>
+                    <p class="mb-0 text-muted" id="displayEmail"><%= user.email %></p>
+                  </div>
+                  <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#editEmailModal">Edit</button>
+                </div>
+
+                <!-- Phone -->
+                <div class="setting-row">
+                  <div>
+                    <h6 class="mb-1">Phone Number</h6>
+                    <p class="mb-0 text-muted" id="displayPhone"><%= user.phone || 'Not set' %></p>
+                  </div>
+                  <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#editPhoneModal">
+                    <%= user.phone ? 'Edit' : 'Add' %>
+                  </button>
+                </div>
+
+                <!-- Password -->
+                <div class="setting-row">
+                  <div>
+                    <h6 class="mb-1">Password</h6>
+                    <p class="mb-0 text-muted">Last changed: Unknown</p>
+                  </div>
+                  <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#changePasswordModal">Change</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Payment Options -->
+          <div class="tab-pane fade" id="paymentOptions">
+            <div class="card">
+              <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                  <h4 class="section-title mb-0"><i class="bi bi-credit-card me-2"></i>Payment Options</h4>
+                  <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addPaymentModal">
+                    <i class="bi bi-plus-lg me-2"></i>Add Payment Method
+                  </button>
+                </div>
+
+                <div id="paymentMethodsContainer">
+                  <div class="text-center py-4">
+                    <div class="spinner-border text-secondary" role="status"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Notifications -->
+          <div class="tab-pane fade" id="notifications">
+            <div class="card">
+              <div class="card-body">
+                <h4 class="section-title"><i class="bi bi-bell me-2"></i>Notification Preferences</h4>
+
+                <!-- Appointment Reminders -->
+                <div class="notification-group">
+                  <h6 class="text-muted mb-3"><i class="bi bi-calendar-event me-2"></i>Appointment Reminders</h6>
+                  <div class="notification-item">
+                    <span>Email</span>
+                    <div class="form-check form-switch">
+                      <input class="form-check-input" type="checkbox" id="appointmentEmail" checked onchange="updateNotification('appointmentEmail', this.checked)">
+                    </div>
+                  </div>
+                  <div class="notification-item">
+                    <span>SMS</span>
+                    <div class="form-check form-switch">
+                      <input class="form-check-input" type="checkbox" id="appointmentSms" checked onchange="updateNotification('appointmentSms', this.checked)">
+                    </div>
+                  </div>
+                  <div class="notification-item">
+                    <span>Push</span>
+                    <div class="form-check form-switch">
+                      <input class="form-check-input" type="checkbox" id="appointmentPush" checked onchange="updateNotification('appointmentPush', this.checked)">
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Medication Reminders -->
+                <div class="notification-group">
+                  <h6 class="text-muted mb-3"><i class="bi bi-capsule me-2"></i>Medication Reminders</h6>
+                  <div class="notification-item">
+                    <span>Email</span>
+                    <div class="form-check form-switch">
+                      <input class="form-check-input" type="checkbox" id="medicationEmail" onchange="updateNotification('medicationEmail', this.checked)">
+                    </div>
+                  </div>
+                  <div class="notification-item">
+                    <span>SMS</span>
+                    <div class="form-check form-switch">
+                      <input class="form-check-input" type="checkbox" id="medicationSms" checked onchange="updateNotification('medicationSms', this.checked)">
+                    </div>
+                  </div>
+                  <div class="notification-item">
+                    <span>Push</span>
+                    <div class="form-check form-switch">
+                      <input class="form-check-input" type="checkbox" id="medicationPush" checked onchange="updateNotification('medicationPush', this.checked)">
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Caregiver Notifications -->
+                <div class="notification-group">
+                  <h6 class="text-muted mb-3"><i class="bi bi-people me-2"></i>Caregiver Notifications</h6>
+                  <div class="notification-item">
+                    <span>Email</span>
+                    <div class="form-check form-switch">
+                      <input class="form-check-input" type="checkbox" id="caregiverEmail" checked onchange="updateNotification('caregiverEmail', this.checked)">
+                    </div>
+                  </div>
+                  <div class="notification-item">
+                    <span>SMS</span>
+                    <div class="form-check form-switch">
+                      <input class="form-check-input" type="checkbox" id="caregiverSms" onchange="updateNotification('caregiverSms', this.checked)">
+                    </div>
+                  </div>
+                  <div class="notification-item">
+                    <span>Push</span>
+                    <div class="form-check form-switch">
+                      <input class="form-check-input" type="checkbox" id="caregiverPush" checked onchange="updateNotification('caregiverPush', this.checked)">
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Security Notifications -->
+                <div class="notification-group">
+                  <h6 class="text-muted mb-3"><i class="bi bi-shield-check me-2"></i>Security Alerts</h6>
+                  <div class="notification-item">
+                    <span>Email</span>
+                    <div class="form-check form-switch">
+                      <input class="form-check-input" type="checkbox" id="securityEmail" checked onchange="updateNotification('securityEmail', this.checked)">
+                    </div>
+                  </div>
+                  <div class="notification-item">
+                    <span>SMS</span>
+                    <div class="form-check form-switch">
+                      <input class="form-check-input" type="checkbox" id="securitySms" checked onchange="updateNotification('securitySms', this.checked)">
+                    </div>
+                  </div>
+                  <div class="notification-item">
+                    <span>Push</span>
+                    <div class="form-check form-switch">
+                      <input class="form-check-input" type="checkbox" id="securityPush" checked onchange="updateNotification('securityPush', this.checked)">
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Devices -->
+          <div class="tab-pane fade" id="devices">
+            <div class="card">
+              <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                  <h4 class="section-title mb-0"><i class="bi bi-laptop me-2"></i>Your Devices</h4>
+                  <button class="btn btn-outline-danger btn-sm" onclick="signOutAllDevices()">Sign Out All Other Devices</button>
+                </div>
+
+                <div id="devicesContainer">
+                  <div class="text-center py-4">
+                    <div class="spinner-border text-secondary" role="status"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Subscription -->
+          <div class="tab-pane fade" id="subscription">
+            <div class="card mb-4">
+              <div class="card-body">
+                <h4 class="section-title"><i class="bi bi-gem me-2"></i>Your Subscription</h4>
+                <div id="currentPlanContainer">
+                  <div class="text-center py-4">
+                    <div class="spinner-border text-secondary" role="status"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Payment History -->
+            <div class="card">
+              <div class="card-body">
+                <h4 class="section-title"><i class="bi bi-receipt me-2"></i>Payment History</h4>
+                <div id="paymentHistoryContainer">
+                  <div class="text-center py-4">
+                    <div class="spinner-border text-secondary" role="status"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Name Modal -->
+  <div class="modal fade" id="editNameModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Edit Name</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <input type="text" class="form-control" id="newName" value="<%= user.name %>" placeholder="Enter your name">
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" onclick="updateName()">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Email Modal -->
+  <div class="modal fade" id="editEmailModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Edit Email</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">New Email</label>
+            <input type="email" class="form-control" id="newEmail" value="<%= user.email %>" placeholder="Enter new email">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Confirm Password</label>
+            <input type="password" class="form-control" id="emailPassword" placeholder="Enter your password">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" onclick="updateEmail()">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Phone Modal -->
+  <div class="modal fade" id="editPhoneModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Edit Phone Number</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <input type="tel" class="form-control" id="newPhone" value="<%= user.phone || '' %>" placeholder="Enter phone number">
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" onclick="updatePhone()">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Change Password Modal -->
+  <div class="modal fade" id="changePasswordModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Change Password</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Current Password</label>
+            <input type="password" class="form-control" id="currentPassword" placeholder="Enter current password">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">New Password</label>
+            <input type="password" class="form-control" id="newPassword" placeholder="Enter new password (min 8 characters)">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Confirm New Password</label>
+            <input type="password" class="form-control" id="confirmPassword" placeholder="Confirm new password">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" onclick="changePassword()">Change Password</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Payment Method Modal -->
+  <div class="modal fade" id="addPaymentModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Add Payment Method</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p class="text-muted">Payment methods are managed through your subscription portal.</p>
+          <button class="btn btn-primary w-100" onclick="openPortal()">
+            <i class="bi bi-credit-card me-2"></i>Manage Payment Methods
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      loadPaymentMethods();
+      loadDevices();
+      loadNotificationPrefs();
+      loadSubscription();
+      loadPaymentHistory();
+    });
+
+    function showToast(message, type = 'success') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = `toast show align-items-center text-white bg-${type === 'error' ? 'danger' : 'success'} border-0`;
+      toast.innerHTML = `
+        <div class="d-flex">
+          <div class="toast-body">${message}</div>
+          <button type="button" class="btn-close btn-close-white me-2 m-auto" onclick="this.parentElement.parentElement.remove()"></button>
+        </div>
+      `;
+      container.appendChild(toast);
+      setTimeout(() => toast.remove(), 5000);
+    }
+
+    async function updateName() {
+      const name = document.getElementById('newName').value.trim();
+      if (!name) return showToast('Name is required', 'error');
+
+      try {
+        const res = await fetch('/api/account/name', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name })
+        });
+        const data = await res.json();
+        if (data.success) {
+          document.getElementById('displayName').textContent = name;
+          bootstrap.Modal.getInstance(document.getElementById('editNameModal')).hide();
+          showToast('Name updated successfully');
+        } else {
+          showToast(data.error || 'Failed to update name', 'error');
+        }
+      } catch (err) {
+        showToast('Failed to update name', 'error');
+      }
+    }
+
+    async function updateEmail() {
+      const email = document.getElementById('newEmail').value.trim();
+      const password = document.getElementById('emailPassword').value;
+      if (!email || !password) return showToast('Email and password are required', 'error');
+
+      try {
+        const res = await fetch('/api/account/email', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+        if (data.success) {
+          document.getElementById('displayEmail').textContent = email;
+          document.getElementById('emailPassword').value = '';
+          bootstrap.Modal.getInstance(document.getElementById('editEmailModal')).hide();
+          showToast('Email updated successfully');
+        } else {
+          showToast(data.error || 'Failed to update email', 'error');
+        }
+      } catch (err) {
+        showToast('Failed to update email', 'error');
+      }
+    }
+
+    async function updatePhone() {
+      const phone = document.getElementById('newPhone').value.trim();
+
+      try {
+        const res = await fetch('/api/account/phone', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone: phone || null })
+        });
+        const data = await res.json();
+        if (data.success) {
+          document.getElementById('displayPhone').textContent = phone || 'Not set';
+          bootstrap.Modal.getInstance(document.getElementById('editPhoneModal')).hide();
+          showToast('Phone updated successfully');
+        } else {
+          showToast(data.error || 'Failed to update phone', 'error');
+        }
+      } catch (err) {
+        showToast('Failed to update phone', 'error');
+      }
+    }
+
+    async function changePassword() {
+      const currentPassword = document.getElementById('currentPassword').value;
+      const newPassword = document.getElementById('newPassword').value;
+      const confirmPassword = document.getElementById('confirmPassword').value;
+
+      if (!currentPassword || !newPassword) return showToast('All fields are required', 'error');
+      if (newPassword !== confirmPassword) return showToast('Passwords do not match', 'error');
+      if (newPassword.length < 8) return showToast('Password must be at least 8 characters', 'error');
+
+      try {
+        const res = await fetch('/api/account/password', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ currentPassword, newPassword })
+        });
+        const data = await res.json();
+        if (data.success) {
+          document.getElementById('currentPassword').value = '';
+          document.getElementById('newPassword').value = '';
+          document.getElementById('confirmPassword').value = '';
+          bootstrap.Modal.getInstance(document.getElementById('changePasswordModal')).hide();
+          showToast('Password changed successfully');
+        } else {
+          showToast(data.error || 'Failed to change password', 'error');
+        }
+      } catch (err) {
+        showToast('Failed to change password', 'error');
+      }
+    }
+
+    async function loadPaymentMethods() {
+      try {
+        const res = await fetch('/api/account/payment-methods');
+        const data = await res.json();
+        const container = document.getElementById('paymentMethodsContainer');
+
+        if (!data.paymentMethods || data.paymentMethods.length === 0) {
+          container.innerHTML = `
+            <div class="text-center py-5 text-muted">
+              <i class="bi bi-credit-card fs-1 mb-3 d-block"></i>
+              <p>No payment methods saved</p>
+              <p class="small">Add a card for faster checkout and subscription billing</p>
+            </div>
+          `;
+          return;
+        }
+
+        container.innerHTML = data.paymentMethods.map(pm => `
+          <div class="payment-card mb-3 ${pm.isDefault ? 'default' : ''}">
+            <div class="d-flex justify-content-between align-items-start">
+              <div>
+                <h6 class="mb-1">${pm.cardType.toUpperCase()}</h6>
+                <p class="mb-0">**** **** **** ${pm.cardLast4}</p>
+                <small>Expires ${pm.expiryMonth}/${pm.expiryYear}</small>
+              </div>
+              <div>
+                ${pm.isDefault ? '<span class="badge bg-light text-dark">Default</span>' : `<button class="btn btn-sm btn-light" onclick="setDefaultPayment('${pm.id}')">Set Default</button>`}
+              </div>
+            </div>
+          </div>
+        `).join('');
+      } catch (err) {
+        console.error('Error loading payment methods:', err);
+      }
+    }
+
+    async function setDefaultPayment(id) {
+      try {
+        const res = await fetch(`/api/account/payment-methods/${id}/default`, { method: 'PUT' });
+        const data = await res.json();
+        if (data.success) {
+          loadPaymentMethods();
+          showToast('Default payment method updated');
+        }
+      } catch (err) {
+        showToast('Failed to update default payment method', 'error');
+      }
+    }
+
+    async function loadDevices() {
+      try {
+        const res = await fetch('/api/account/devices');
+        const data = await res.json();
+        const container = document.getElementById('devicesContainer');
+
+        if (!data.devices || data.devices.length === 0) {
+          container.innerHTML = `
+            <div class="text-center py-5 text-muted">
+              <i class="bi bi-laptop fs-1 mb-3 d-block"></i>
+              <p>No devices recorded</p>
+            </div>
+          `;
+          return;
+        }
+
+        container.innerHTML = data.devices.map(d => `
+          <div class="device-row ${d.isCurrent ? 'current' : ''}">
+            <i class="bi bi-${d.deviceType === 'mobile' ? 'phone' : d.deviceType === 'tablet' ? 'tablet' : 'laptop'} fs-3 me-3"></i>
+            <div class="flex-grow-1">
+              <h6 class="mb-0">${d.browser || 'Unknown Browser'} on ${d.osName || 'Unknown OS'}</h6>
+              <small class="text-muted">Last active: ${new Date(d.lastSeenAt).toLocaleString()}</small>
+              ${d.isCurrent ? '<span class="badge bg-success ms-2">This device</span>' : ''}
+            </div>
+            ${!d.isCurrent ? `<button class="btn btn-outline-danger btn-sm" onclick="signOutDevice('${d.id}')">Sign Out</button>` : ''}
+          </div>
+        `).join('');
+      } catch (err) {
+        console.error('Error loading devices:', err);
+      }
+    }
+
+    async function signOutDevice(id) {
+      if (!confirm('Sign out this device?')) return;
+      try {
+        const res = await fetch(`/api/account/devices/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) {
+          loadDevices();
+          showToast('Device signed out');
+        }
+      } catch (err) {
+        showToast('Failed to sign out device', 'error');
+      }
+    }
+
+    async function signOutAllDevices() {
+      if (!confirm('Sign out all other devices?')) return;
+      try {
+        const res = await fetch('/api/account/devices', { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) {
+          loadDevices();
+          showToast('Signed out of all other devices');
+        }
+      } catch (err) {
+        showToast('Failed to sign out devices', 'error');
+      }
+    }
+
+    async function loadNotificationPrefs() {
+      try {
+        const res = await fetch('/api/account/notifications');
+        const data = await res.json();
+        if (data.preferences) {
+          const prefs = data.preferences;
+          Object.keys(prefs).forEach(key => {
+            const el = document.getElementById(key);
+            if (el) el.checked = prefs[key];
+          });
+        }
+      } catch (err) {
+        console.error('Error loading notification prefs:', err);
+      }
+    }
+
+    async function updateNotification(key, value) {
+      try {
+        await fetch('/api/account/notifications', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ [key]: value })
+        });
+      } catch (err) {
+        console.error('Error updating notification:', err);
+      }
+    }
+
+    async function loadSubscription() {
+      try {
+        const res = await fetch('/api/billing/subscription');
+        const data = await res.json();
+        const container = document.getElementById('currentPlanContainer');
+        const sub = data.data?.subscription;
+
+        if (!sub) {
+          container.innerHTML = '<p class="text-muted">No subscription found</p>';
+          return;
+        }
+
+        container.innerHTML = `
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h5 class="mb-1">${sub.name} Plan</h5>
+              <p class="mb-0">
+                Status: <span class="badge ${sub.status === 'ACTIVE' ? 'bg-success' : 'bg-warning'}">${sub.status}</span>
+                ${sub.cancelAtPeriodEnd ? '<span class="badge bg-warning ms-2">Cancels at end of period</span>' : ''}
+              </p>
+              ${sub.currentPeriodEnd ? `<small class="text-muted">Next billing: ${new Date(sub.currentPeriodEnd).toLocaleDateString()}</small>` : ''}
+            </div>
+            ${sub.plan !== 'FREE' && sub.stripeSubscriptionId ? `
+              <button class="btn btn-outline-primary" onclick="openPortal()">
+                <i class="bi bi-gear me-2"></i>Manage
+              </button>
+            ` : ''}
+          </div>
+        `;
+      } catch (err) {
+        console.error('Error loading subscription:', err);
+      }
+    }
+
+    async function loadPaymentHistory() {
+      try {
+        const res = await fetch('/api/billing/payments');
+        const data = await res.json();
+        const container = document.getElementById('paymentHistoryContainer');
+        const payments = data.data?.payments || [];
+
+        if (payments.length === 0) {
+          container.innerHTML = `
+            <div class="text-center py-4 text-muted">
+              <i class="bi bi-receipt fs-1 mb-3 d-block"></i>
+              <p>No payment history</p>
+            </div>
+          `;
+          return;
+        }
+
+        container.innerHTML = `
+          <table class="table">
+            <thead>
+              <tr><th>Date</th><th>Description</th><th>Amount</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+              ${payments.map(p => `
+                <tr>
+                  <td>${new Date(p.createdAt).toLocaleDateString()}</td>
+                  <td>${p.description || 'Payment'}</td>
+                  <td>$${p.amount.toFixed(2)}</td>
+                  <td><span class="badge ${p.status === 'COMPLETED' ? 'bg-success' : 'bg-secondary'}">${p.status}</span></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+      } catch (err) {
+        console.error('Error loading payment history:', err);
+      }
+    }
+
+    async function openPortal() {
+      try {
+        const res = await fetch('/api/billing/portal', { method: 'POST' });
+        const data = await res.json();
+        if (data.success && data.data.url) {
+          window.location.href = data.data.url;
+        } else {
+          showToast(data.error || 'Failed to open billing portal', 'error');
+        }
+      } catch (err) {
+        showToast('Failed to open billing portal', 'error');
+      }
+    }
+  </script>
+</body>
+</html>

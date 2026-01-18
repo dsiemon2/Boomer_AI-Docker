@@ -1,0 +1,15 @@
+Issue Type,Summary,Description,Epic,Acceptance Criteria,Evidence Required
+Epic,SOC2 Security,Security controls to support SOC 2 readiness,,,
+Story,Implement RBAC,Define roles and enforce server-side authorization,SOC2 Security,Role matrix defined; backend authorization checks added; access review report exportable,Role matrix export; policy/config screenshots; audit logs; quarterly access review report
+Story,Require MFA for Admin/Support,Enforce MFA for privileged roles in IdP,SOC2 Security,MFA required; cannot bypass; recovery process documented,IdP policy screenshot/export; user MFA export; test evidence
+Story,Central Audit Logging,Log critical actions with retention policy,SOC2 Security,Critical actions logged; retention >= 365d; searchable by user/time,Sample log entries; retention settings; query exports
+Story,Vulnerability Mgmt in CI,Add dependency scanning + SLA triage,SOC2 Security,SCA runs on PR/merge; SLA documented; remediation tracked,CI scan reports; tickets; remediation timelines
+Epic,SOC2 Availability,Availability controls for uptime and incident handling,,,
+Story,Monitoring & Alerting,Dashboards and alert rules for core services,SOC2 Availability,Dashboards exist; alert rules configured; on-call routing tested,Dashboard screenshots; alert rule exports; test alert evidence
+Story,Incident Response Plan,Document and test incident response process,SOC2 Availability,IR plan approved; tabletop exercise completed; postmortem template used,IR plan doc; exercise notes; postmortem example
+Story,Backup + Restore Testing,Automate backups and run restore tests quarterly,SOC2 Availability,Backups scheduled; restore test completed; RTO/RPO documented,Backup configs; restore test logs; RTO/RPO doc
+Epic,SOC2 Confidentiality,Encryption and secrets management controls,,,
+Story,TLS Everywhere,Enforce TLS 1.2+ and secure headers,SOC2 Confidentiality,TLS 1.2+; HSTS enabled; secure cookies; no mixed content,TLS config exports; security headers scan; LB/gateway config
+Story,Encryption at Rest + KMS,Encrypt DB at rest and store secrets in KMS,SOC2 Confidentiality,DB encryption enabled; secrets in KMS/Key Vault; rotation process,Encryption settings; KMS policy exports; rotation logs
+Epic,Consent & Privacy (Recommended),Consent management and audit history,,,
+Story,Consent Management,Implement consent flags with auditable history,Consent & Privacy (Recommended),Consent toggles; consent history; exportable logs,UI screenshots; schema; audit log exports

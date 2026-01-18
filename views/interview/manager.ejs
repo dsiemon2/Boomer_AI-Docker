@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Interview Manager - <%= interview.candidateName %></title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+  <style>
+    :root {
+      --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    body {
+      background: #f8f9fa;
+      min-height: 100vh;
+    }
+    .manager-header {
+      background: var(--primary-gradient);
+      color: white;
+      padding: 1rem 0;
+    }
+    .sidebar {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+      height: calc(100vh - 150px);
+      overflow-y: auto;
+    }
+    .question-item {
+      padding: 1rem;
+      border-bottom: 1px solid #eee;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .question-item:hover {
+      background: #f8f9fa;
+    }
+    .question-item.current {
+      background: #e3f2fd;
+      border-left: 3px solid #1976d2;
+    }
+    .question-item.completed {
+      opacity: 0.6;
+    }
+    .question-item .category {
+      font-size: 0.75rem;
+      color: #6c757d;
+      text-transform: uppercase;
+    }
+    .transcript-panel {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+      height: calc(100vh - 150px);
+      display: flex;
+      flex-direction: column;
+    }
+    .transcript-header {
+      padding: 1rem;
+      border-bottom: 1px solid #eee;
+    }
+    .transcript-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1rem;
+    }
+    .transcript-entry {
+      padding: 0.75rem;
+      margin-bottom: 0.5rem;
+      border-radius: 8px;
+    }
+    .transcript-entry.ai {
+      background: #e3f2fd;
+      margin-right: 20%;
+    }
+    .transcript-entry.candidate {
+      background: #e8f5e9;
+      margin-left: 20%;
+    }
+    .transcript-entry .speaker {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      margin-bottom: 0.25rem;
+    }
+    .transcript-entry.ai .speaker { color: #1976d2; }
+    .transcript-entry.candidate .speaker { color: #388e3c; }
+    .control-panel {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+      padding: 1rem;
+    }
+    .status-indicator {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 0.5rem;
+    }
+    .status-indicator.connected { background: #28a745; }
+    .status-indicator.disconnected { background: #dc3545; }
+    .status-indicator.pending { background: #ffc107; }
+    .ai-state-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.25rem 0.75rem;
+      border-radius: 50px;
+      font-size: 0.85rem;
+    }
+    .ai-state-badge.speaking { background: #e3f2fd; color: #1976d2; }
+    .ai-state-badge.listening { background: #e8f5e9; color: #388e3c; }
+    .ai-state-badge.thinking { background: #fff3e0; color: #f57c00; }
+    .follow-up-item {
+      padding: 0.5rem;
+      border: 1px solid #dee2e6;
+      border-radius: 8px;
+      margin-bottom: 0.5rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .follow-up-item:hover {
+      background: #e3f2fd;
+      border-color: #1976d2;
+    }
+  </style>
+</head>
+<body>
+  <header class="manager-header">
+    <div class="container-fluid px-4">
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <h5 class="mb-0">Interview Manager</h5>
+          <small><%= interview.candidateName %> - <%= jobRole.title %></small>
+        </div>
+        <div class="d-flex align-items-center gap-3">
+          <div id="connectionStatus">
+            <span class="status-indicator pending"></span>
+            <span>Connecting...</span>
+          </div>
+          <div id="aiState">
+            <span class="ai-state-badge">--</span>
+          </div>
+          <div>
+            <i class="bi bi-clock me-1"></i>
+            <span id="interviewTimer">00:00</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="container-fluid p-4">
+    <div class="row">
+      <!-- Questions Sidebar -->
+      <div class="col-lg-3 mb-4">
+        <div class="sidebar">
+          <div class="p-3 border-bottom">
+            <h6 class="mb-0">
+              <i class="bi bi-list-check me-2"></i>Questions
+              <span class="badge bg-secondary float-end"><%= questions.length %></span>
+            </h6>
+          </div>
+          <div id="questionsList">
+            <% questions.forEach((q, index) => { %>
+              <div class="question-item" data-question-id="<%= q.id %>" data-index="<%= index %>">
+                <div class="category"><%= q.categoryName %></div>
+                <div class="small"><%= q.text.substring(0, 80) %>...</div>
+                <% if (q.followUps && q.followUps.length > 0) { %>
+                  <div class="mt-1">
+                    <span class="badge bg-info"><%= q.followUps.length %> follow-ups</span>
+                  </div>
+                <% } %>
+              </div>
+            <% }) %>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Transcript -->
+      <div class="col-lg-6 mb-4">
+        <div class="transcript-panel">
+          <div class="transcript-header d-flex justify-content-between align-items-center">
+            <h6 class="mb-0">
+              <i class="bi bi-chat-text me-2"></i>Live Transcript
+            </h6>
+            <button class="btn btn-sm btn-outline-secondary" id="downloadTranscriptBtn" data-bs-toggle="tooltip" title="Download transcript">
+              <i class="bi bi-download"></i>
+            </button>
+          </div>
+          <div class="transcript-body" id="transcriptBody">
+            <% if (transcript && transcript.length > 0) { %>
+              <% transcript.forEach(t => { %>
+                <div class="transcript-entry <%= t.speaker %>">
+                  <div class="speaker"><%= t.speaker === 'ai' ? 'AI Interviewer' : 'Candidate' %></div>
+                  <div><%= t.text %></div>
+                </div>
+              <% }) %>
+            <% } else { %>
+              <div class="text-center text-muted p-4" id="emptyTranscript">
+                <i class="bi bi-chat-dots fs-1 d-block mb-2"></i>
+                Waiting for interview to start...
+              </div>
+            <% } %>
+          </div>
+        </div>
+      </div>
+
+      <!-- Control Panel -->
+      <div class="col-lg-3 mb-4">
+        <div class="control-panel mb-4">
+          <h6 class="mb-3">
+            <i class="bi bi-sliders me-2"></i>Controls
+          </h6>
+          <div class="d-grid gap-2">
+            <button class="btn btn-primary" id="nextQuestionBtn" data-bs-toggle="tooltip" title="Skip to next question">
+              <i class="bi bi-skip-forward me-2"></i>Next Question
+            </button>
+            <button class="btn btn-outline-danger" id="endInterviewBtn" data-bs-toggle="tooltip" title="End interview now">
+              <i class="bi bi-stop-circle me-2"></i>End Interview
+            </button>
+          </div>
+        </div>
+
+        <div class="control-panel" id="followUpsPanel">
+          <h6 class="mb-3">
+            <i class="bi bi-chat-dots me-2"></i>Follow-up Questions
+          </h6>
+          <div id="followUpsList">
+            <p class="text-muted small">Select a question to see available follow-ups</p>
+          </div>
+        </div>
+
+        <div class="control-panel mt-4">
+          <h6 class="mb-3">
+            <i class="bi bi-info-circle me-2"></i>Session Info
+          </h6>
+          <div class="small">
+            <div class="mb-2">
+              <strong>Candidate:</strong> <%= interview.candidateName %>
+            </div>
+            <div class="mb-2">
+              <strong>Position:</strong> <%= jobRole.title %>
+            </div>
+            <div class="mb-2">
+              <strong>Company:</strong> <%= company.name %>
+            </div>
+            <div class="mb-2">
+              <strong>Mode:</strong>
+              <span class="badge bg-<%= interview.mode === 'HYBRID' ? 'warning' : 'info' %>">
+                <%= interview.mode %>
+              </span>
+            </div>
+            <div>
+              <strong>Duration:</strong> <%= interview.duration %> minutes
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    const token = '<%= token %>';
+    const adminToken = '<%= adminToken %>';
+    const wsUrl = '<%= wsUrl %>';
+    const questions = <%- JSON.stringify(questions) %>;
+
+    let ws = null;
+    let currentQuestionIndex = 0;
+    let interviewStartTime = null;
+    let timerInterval = null;
+
+    // DOM Elements
+    const connectionStatus = document.getElementById('connectionStatus');
+    const aiState = document.getElementById('aiState');
+    const transcriptBody = document.getElementById('transcriptBody');
+    const emptyTranscript = document.getElementById('emptyTranscript');
+    const questionsList = document.getElementById('questionsList');
+    const followUpsList = document.getElementById('followUpsList');
+    const interviewTimer = document.getElementById('interviewTimer');
+    const nextQuestionBtn = document.getElementById('nextQuestionBtn');
+    const endInterviewBtn = document.getElementById('endInterviewBtn');
+    const downloadTranscriptBtn = document.getElementById('downloadTranscriptBtn');
+
+    // Initialize tooltips
+    document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
+      new bootstrap.Tooltip(el);
+    });
+
+    // Connect WebSocket
+    function connectWebSocket() {
+      ws = new WebSocket(`${wsUrl}?token=${token}&role=manager&adminToken=${adminToken}`);
+
+      ws.onopen = () => {
+        console.log('Manager WebSocket connected');
+        updateConnectionStatus(true);
+      };
+
+      ws.onclose = () => {
+        console.log('Manager WebSocket disconnected');
+        updateConnectionStatus(false);
+        setTimeout(connectWebSocket, 3000);
+      };
+
+      ws.onerror = (err) => {
+        console.error('WebSocket error:', err);
+      };
+
+      ws.onmessage = (event) => {
+        const message = JSON.parse(event.data);
+        handleServerMessage(message);
+      };
+    }
+
+    function updateConnectionStatus(connected) {
+      const indicator = connectionStatus.querySelector('.status-indicator');
+      const text = connectionStatus.querySelector('span:last-child');
+
+      indicator.className = 'status-indicator ' + (connected ? 'connected' : 'disconnected');
+      text.textContent = connected ? 'Connected' : 'Disconnected';
+    }
+
+    function handleServerMessage(message) {
+      console.log('Server message:', message);
+
+      switch (message.type) {
+        case 'session_ready':
+          if (message.data?.transcript) {
+            message.data.transcript.forEach(t => {
+              addTranscriptEntry(t.speaker, t.text);
+            });
+          }
+          break;
+
+        case 'ai_speaking':
+          setAIState('speaking');
+          break;
+
+        case 'ai_listening':
+          setAIState('listening');
+          break;
+
+        case 'ai_thinking':
+          setAIState('thinking');
+          break;
+
+        case 'transcript_update':
+          addTranscriptEntry(message.data.speaker, message.data.text);
+          break;
+
+        case 'question_started':
+          highlightCurrentQuestion(message.data.questionId);
+          showFollowUps(message.data.questionId);
+          break;
+
+        case 'interview_started':
+          startTimer();
+          break;
+
+        case 'interview_completed':
+          alert('Interview completed!');
+          window.location.href = `/admin/interviews?token=${adminToken}`;
+          break;
+
+        case 'error':
+          console.error('Server error:', message.data);
+          break;
+      }
+    }
+
+    function setAIState(state) {
+      let html = '';
+      switch (state) {
+        case 'speaking':
+          html = '<span class="ai-state-badge speaking"><i class="bi bi-volume-up me-1"></i>Speaking</span>';
+          break;
+        case 'listening':
+          html = '<span class="ai-state-badge listening"><i class="bi bi-mic me-1"></i>Listening</span>';
+          break;
+        case 'thinking':
+          html = '<span class="ai-state-badge thinking"><i class="bi bi-hourglass-split me-1"></i>Thinking</span>';
+          break;
+      }
+      aiState.innerHTML = html;
+    }
+
+    function addTranscriptEntry(speaker, text) {
+      if (emptyTranscript) {
+        emptyTranscript.remove();
+      }
+
+      const entry = document.createElement('div');
+      entry.className = 'transcript-entry ' + speaker;
+      entry.innerHTML = `
+        <div class="speaker">${speaker === 'ai' ? 'AI Interviewer' : 'Candidate'}</div>
+        <div>${text}</div>
+      `;
+      transcriptBody.appendChild(entry);
+      transcriptBody.scrollTop = transcriptBody.scrollHeight;
+    }
+
+    function highlightCurrentQuestion(questionId) {
+      document.querySelectorAll('.question-item').forEach(item => {
+        item.classList.remove('current');
+        if (item.dataset.questionId === questionId) {
+          item.classList.add('current');
+          currentQuestionIndex = parseInt(item.dataset.index);
+        }
+      });
+    }
+
+    function showFollowUps(questionId) {
+      const question = questions.find(q => q.id === questionId);
+      if (!question || !question.followUps || question.followUps.length === 0) {
+        followUpsList.innerHTML = '<p class="text-muted small">No follow-ups for this question</p>';
+        return;
+      }
+
+      followUpsList.innerHTML = question.followUps.map((fu, i) => `
+        <div class="follow-up-item" data-followup="${i}">
+          <small>${fu}</small>
+        </div>
+      `).join('');
+
+      // Add click handlers for follow-ups (for future manual ask feature)
+      followUpsList.querySelectorAll('.follow-up-item').forEach(item => {
+        item.addEventListener('click', () => {
+          // In HYBRID mode, manager could manually trigger follow-ups
+          console.log('Follow-up selected:', question.followUps[item.dataset.followup]);
+        });
+      });
+    }
+
+    function startTimer() {
+      interviewStartTime = Date.now();
+      timerInterval = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - interviewStartTime) / 1000);
+        const minutes = Math.floor(elapsed / 60).toString().padStart(2, '0');
+        const seconds = (elapsed % 60).toString().padStart(2, '0');
+        interviewTimer.textContent = `${minutes}:${seconds}`;
+      }, 1000);
+    }
+
+    // Control buttons
+    nextQuestionBtn.addEventListener('click', () => {
+      if (confirm('Skip to the next question?')) {
+        ws.send(JSON.stringify({
+          type: 'manager_command',
+          command: 'next_question'
+        }));
+      }
+    });
+
+    endInterviewBtn.addEventListener('click', () => {
+      if (confirm('Are you sure you want to end the interview?')) {
+        ws.send(JSON.stringify({
+          type: 'manager_command',
+          command: 'end_interview'
+        }));
+      }
+    });
+
+    downloadTranscriptBtn.addEventListener('click', async () => {
+      try {
+        const response = await fetch(`/interview/${token}/transcript?adminToken=${adminToken}`);
+        const data = await response.json();
+
+        if (data.success) {
+          const blob = new Blob([data.data.fullText], { type: 'text/plain' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `interview-transcript-${token}.txt`;
+          a.click();
+          URL.revokeObjectURL(url);
+        }
+      } catch (err) {
+        console.error('Download error:', err);
+        alert('Failed to download transcript');
+      }
+    });
+
+    // Question list click handlers
+    questionsList.querySelectorAll('.question-item').forEach(item => {
+      item.addEventListener('click', () => {
+        showFollowUps(item.dataset.questionId);
+      });
+    });
+
+    // Initialize
+    connectWebSocket();
+  </script>
+</body>
+</html>

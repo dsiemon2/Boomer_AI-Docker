@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Analytics - AI Recruiting Assistant</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    .sidebar { min-height: 100vh; background: #1e3a5f; }
+    .sidebar .nav-link { color: rgba(255,255,255,0.8); padding: 0.75rem 1rem; }
+    .sidebar .nav-link:hover, .sidebar .nav-link.active { color: #fff; background: rgba(255,255,255,0.1); }
+    .sidebar .nav-link i { margin-right: 0.5rem; }
+    .main-content { background: #f8f9fa; min-height: 100vh; }
+    .nav-divider { border-top: 1px solid rgba(255,255,255,0.2); margin: 0.5rem 0; }
+    .nav-section { color: rgba(255,255,255,0.5); font-size: 0.75rem; padding: 0.5rem 1rem; text-transform: uppercase; }
+    .stat-card { border: none; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); transition: transform 0.2s; }
+    .stat-card:hover { transform: translateY(-2px); }
+    .stat-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; }
+    .stat-value { font-size: 2rem; font-weight: 700; }
+    .chart-container { position: relative; height: 300px; }
+    .score-badge { font-size: 1rem; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 50%; }
+    .recommendation-badge { padding: 0.25rem 0.75rem; border-radius: 20px; font-weight: 500; }
+  </style>
+</head>
+<body>
+  <div class="container-fluid">
+    <div class="row">
+      <%- include('_sidebar', { token, active: 'analytics' }) %>
+
+      <main class="col-md-10 ms-sm-auto main-content p-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <div>
+            <h2 class="mb-1"><i class="bi bi-graph-up text-primary me-2"></i>Analytics Dashboard</h2>
+            <p class="text-muted mb-0">Interview performance insights and metrics</p>
+          </div>
+          <div>
+            <select class="form-select" id="dateRange" onchange="changeDateRange(this.value)">
+              <option value="7" <%= days === 7 ? 'selected' : '' %>>Last 7 days</option>
+              <option value="30" <%= days === 30 ? 'selected' : '' %>>Last 30 days</option>
+              <option value="90" <%= days === 90 ? 'selected' : '' %>>Last 90 days</option>
+              <option value="365" <%= days === 365 ? 'selected' : '' %>>Last year</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Overview Stats -->
+        <div class="row g-4 mb-4">
+          <div class="col-md-3">
+            <div class="card stat-card h-100">
+              <div class="card-body">
+                <div class="d-flex align-items-center">
+                  <div class="stat-icon bg-primary bg-opacity-10 text-primary me-3">
+                    <i class="bi bi-people"></i>
+                  </div>
+                  <div>
+                    <div class="stat-value text-primary"><%= stats.totalInterviews %></div>
+                    <div class="text-muted">Total Interviews</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="card stat-card h-100">
+              <div class="card-body">
+                <div class="d-flex align-items-center">
+                  <div class="stat-icon bg-success bg-opacity-10 text-success me-3">
+                    <i class="bi bi-check-circle"></i>
+                  </div>
+                  <div>
+                    <div class="stat-value text-success"><%= stats.completedInterviews %></div>
+                    <div class="text-muted">Completed</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="card stat-card h-100">
+              <div class="card-body">
+                <div class="d-flex align-items-center">
+                  <div class="stat-icon bg-info bg-opacity-10 text-info me-3">
+                    <i class="bi bi-percent"></i>
+                  </div>
+                  <div>
+                    <div class="stat-value text-info"><%= stats.completionRate %>%</div>
+                    <div class="text-muted">Completion Rate</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="card stat-card h-100">
+              <div class="card-body">
+                <div class="d-flex align-items-center">
+                  <div class="stat-icon bg-warning bg-opacity-10 text-warning me-3">
+                    <i class="bi bi-star"></i>
+                  </div>
+                  <div>
+                    <div class="stat-value text-warning"><%= stats.averageScore %></div>
+                    <div class="text-muted">Avg. Score</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row g-4 mb-4">
+          <!-- Recommendations Chart -->
+          <div class="col-md-6">
+            <div class="card h-100">
+              <div class="card-header bg-white border-0">
+                <h5 class="mb-0"><i class="bi bi-pie-chart me-2 text-primary"></i>Hiring Recommendations</h5>
+              </div>
+              <div class="card-body">
+                <div class="chart-container">
+                  <canvas id="recommendationsChart"></canvas>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Interview Modes Chart -->
+          <div class="col-md-6">
+            <div class="card h-100">
+              <div class="card-header bg-white border-0">
+                <h5 class="mb-0"><i class="bi bi-bar-chart me-2 text-primary"></i>Interview Modes</h5>
+              </div>
+              <div class="card-body">
+                <div class="chart-container">
+                  <canvas id="modesChart"></canvas>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row g-4 mb-4">
+          <!-- Interviews by Job Role -->
+          <div class="col-md-6">
+            <div class="card h-100">
+              <div class="card-header bg-white border-0">
+                <h5 class="mb-0"><i class="bi bi-briefcase me-2 text-primary"></i>Interviews by Job Role</h5>
+              </div>
+              <div class="card-body">
+                <% if (byJobRole.length === 0) { %>
+                <div class="text-center text-muted py-4">
+                  <i class="bi bi-inbox fs-1"></i>
+                  <p class="mt-2">No interview data available</p>
+                </div>
+                <% } else { %>
+                <table class="table table-hover mb-0">
+                  <thead class="table-light">
+                    <tr>
+                      <th>Job Role</th>
+                      <th class="text-end">Interviews</th>
+                      <th style="width: 40%;">Distribution</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <% byJobRole.forEach(jr => { %>
+                    <tr>
+                      <td><%= jr.title %></td>
+                      <td class="text-end"><%= jr.count %></td>
+                      <td>
+                        <div class="progress" style="height: 8px;">
+                          <div class="progress-bar bg-primary" role="progressbar" style="width: <%= (jr.count / stats.totalInterviews * 100).toFixed(0) %>%"></div>
+                        </div>
+                      </td>
+                    </tr>
+                    <% }) %>
+                  </tbody>
+                </table>
+                <% } %>
+              </div>
+            </div>
+          </div>
+
+          <!-- Top Candidates -->
+          <div class="col-md-6">
+            <div class="card h-100">
+              <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-trophy me-2 text-warning"></i>Top Candidates</h5>
+                <span class="badge bg-success"><%= topCandidates.length %> strong hires</span>
+              </div>
+              <div class="card-body">
+                <% if (topCandidates.length === 0) { %>
+                <div class="text-center text-muted py-4">
+                  <i class="bi bi-person-check fs-1"></i>
+                  <p class="mt-2">No top candidates yet</p>
+                </div>
+                <% } else { %>
+                <div class="list-group list-group-flush">
+                  <% topCandidates.slice(0, 5).forEach(tc => { %>
+                  <a href="<%= basePath %>/admin/interviews/<%= tc.interviewId %>?token=<%= token %>" class="list-group-item list-group-item-action d-flex align-items-center">
+                    <div class="score-badge bg-<%= tc.score >= 5 ? 'success' : 'primary' %> text-white me-3">
+                      <%= tc.score %>
+                    </div>
+                    <div class="flex-grow-1">
+                      <div class="fw-semibold"><%= tc.candidateName %></div>
+                      <small class="text-muted"><%= tc.jobRole %></small>
+                    </div>
+                    <span class="recommendation-badge bg-<%= tc.recommendation === 'STRONG_YES' ? 'success' : 'primary' %> bg-opacity-10 text-<%= tc.recommendation === 'STRONG_YES' ? 'success' : 'primary' %>">
+                      <%= tc.recommendation.replace('_', ' ') %>
+                    </span>
+                  </a>
+                  <% }) %>
+                </div>
+                <% } %>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Completed Interviews -->
+        <div class="card">
+          <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-clock-history me-2 text-primary"></i>Recent Completed Interviews</h5>
+            <a href="<%= basePath %>/admin/interviews?status=COMPLETED&token=<%= token %>" class="btn btn-sm btn-outline-primary" data-bs-toggle="tooltip" title="View all completed interviews">View All</a>
+          </div>
+          <div class="card-body p-0">
+            <% if (recentCompleted.length === 0) { %>
+            <div class="text-center text-muted py-5">
+              <i class="bi bi-calendar-check fs-1"></i>
+              <p class="mt-2">No completed interviews yet</p>
+            </div>
+            <% } else { %>
+            <table class="table table-hover mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>Candidate</th>
+                  <th>Job Role</th>
+                  <th class="text-center">Score</th>
+                  <th class="text-center">Recommendation</th>
+                  <th>Completed</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <% recentCompleted.forEach(interview => { %>
+                <tr>
+                  <td>
+                    <div class="fw-semibold"><%= interview.candidateName %></div>
+                    <small class="text-muted"><%= interview.candidateEmail %></small>
+                  </td>
+                  <td><%= interview.jobRole.title %></td>
+                  <td class="text-center">
+                    <% if (interview.result?.overallScore) { %>
+                    <span class="score-badge bg-<%= interview.result.overallScore >= 4 ? 'success' : interview.result.overallScore >= 3 ? 'warning' : 'danger' %> text-white mx-auto">
+                      <%= interview.result.overallScore %>
+                    </span>
+                    <% } else { %>
+                    <span class="text-muted">-</span>
+                    <% } %>
+                  </td>
+                  <td class="text-center">
+                    <% if (interview.result?.recommendation) { %>
+                    <span class="badge bg-<%= interview.result.recommendation.includes('YES') ? 'success' : interview.result.recommendation === 'MAYBE' ? 'warning' : 'danger' %>">
+                      <%= interview.result.recommendation.replace('_', ' ') %>
+                    </span>
+                    <% } else { %>
+                    <span class="text-muted">-</span>
+                    <% } %>
+                  </td>
+                  <td><%= new Date(interview.updatedAt).toLocaleDateString() %></td>
+                  <td>
+                    <a href="<%= basePath %>/admin/interviews/<%= interview.id %>?token=<%= token %>" class="btn btn-sm btn-outline-primary" data-bs-toggle="tooltip" title="View details">
+                      <i class="bi bi-eye"></i>
+                    </a>
+                  </td>
+                </tr>
+                <% }) %>
+              </tbody>
+            </table>
+            <% } %>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    const token = '<%= token %>';
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+      tooltipTriggerList.forEach(el => new bootstrap.Tooltip(el));
+
+      initCharts();
+    });
+
+    function changeDateRange(days) {
+      window.location.href = `/admin/analytics?days=${days}&token=${token}`;
+    }
+
+    function initCharts() {
+      // Recommendations Chart
+      const recData = <%- JSON.stringify(byRecommendation) %>;
+      const recLabels = Object.keys(recData).map(k => k.replace('_', ' '));
+      const recValues = Object.values(recData);
+      const recColors = {
+        'STRONG YES': '#198754',
+        'YES': '#0d6efd',
+        'MAYBE': '#ffc107',
+        'NO': '#dc3545',
+        'STRONG NO': '#6c757d',
+        'NONE': '#adb5bd',
+      };
+
+      if (recLabels.length > 0) {
+        new Chart(document.getElementById('recommendationsChart'), {
+          type: 'doughnut',
+          data: {
+            labels: recLabels,
+            datasets: [{
+              data: recValues,
+              backgroundColor: recLabels.map(l => recColors[l] || '#6c757d'),
+              borderWidth: 0,
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { position: 'right' },
+            }
+          }
+        });
+      }
+
+      // Modes Chart
+      const modeData = <%- JSON.stringify(byMode) %>;
+      const modeLabels = Object.keys(modeData).map(k => k === 'AI_ONLY' ? 'AI Only' : 'Hybrid');
+      const modeValues = Object.values(modeData);
+
+      if (modeLabels.length > 0) {
+        new Chart(document.getElementById('modesChart'), {
+          type: 'bar',
+          data: {
+            labels: modeLabels,
+            datasets: [{
+              label: 'Interviews',
+              data: modeValues,
+              backgroundColor: ['#0d6efd', '#198754'],
+              borderRadius: 8,
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+            },
+            scales: {
+              y: { beginAtZero: true, ticks: { stepSize: 1 } }
+            }
+          }
+        });
+      }
+    }
+  </script>
+</body>
+</html>

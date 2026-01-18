@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Billing - Boomer AI</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+  <style>
+    body {
+      background: #f8f9fa;
+      font-size: 1.1rem;
+    }
+    .navbar {
+      background: #2d5a3d !important;
+    }
+    .pricing-card {
+      border-radius: 20px;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .pricing-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    }
+    .pricing-card.featured {
+      border: 3px solid #2d5a3d;
+    }
+    .pricing-header {
+      background: linear-gradient(135deg, #2d5a3d 0%, #1a3d2e 100%);
+      color: white;
+      border-radius: 17px 17px 0 0;
+      padding: 2rem;
+      text-align: center;
+    }
+    .pricing-card.featured .pricing-header {
+      background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
+    }
+    .price {
+      font-size: 3rem;
+      font-weight: bold;
+    }
+    .price-period {
+      font-size: 1rem;
+      opacity: 0.8;
+    }
+    .pricing-body {
+      padding: 2rem;
+    }
+    .feature-list {
+      list-style: none;
+      padding: 0;
+    }
+    .feature-list li {
+      padding: 0.5rem 0;
+      display: flex;
+      align-items: center;
+    }
+    .feature-list li i {
+      color: #2d5a3d;
+      margin-right: 0.75rem;
+      font-size: 1.2rem;
+    }
+    .btn-plan {
+      background: #2d5a3d;
+      border-color: #2d5a3d;
+      font-size: 1.1rem;
+      padding: 0.75rem 2rem;
+      border-radius: 10px;
+    }
+    .btn-plan:hover {
+      background: #1a3d2e;
+      border-color: #1a3d2e;
+    }
+    .btn-current {
+      background: #6c757d;
+      border-color: #6c757d;
+    }
+    .current-badge {
+      background: #2d5a3d;
+      color: white;
+      padding: 0.25rem 1rem;
+      border-radius: 20px;
+      font-size: 0.9rem;
+      margin-top: 0.5rem;
+      display: inline-block;
+    }
+    .section-title {
+      font-size: 1.3rem;
+      font-weight: 600;
+      color: #2d5a3d;
+      margin-bottom: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar navbar-dark mb-4">
+    <div class="container">
+      <a class="navbar-brand" href="/">
+        <i class="bi bi-heart-pulse me-2"></i>Boomer AI
+      </a>
+      <span class="navbar-text text-white">
+        <i class="bi bi-credit-card me-1"></i>Billing
+      </span>
+      <div class="dropdown">
+        <button class="btn btn-outline-light dropdown-toggle" type="button" data-bs-toggle="dropdown">
+          <i class="bi bi-person-circle me-1"></i><%= user.name %>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end">
+          <li><a class="dropdown-item" href="/"><i class="bi bi-mic me-2"></i>Voice Assistant</a></li>
+          <li><a class="dropdown-item" href="/caregiver"><i class="bi bi-people me-2"></i>Caregiver</a></li>
+          <li><a class="dropdown-item" href="/account"><i class="bi bi-person-gear me-2"></i>Account</a></li>
+          <li><hr class="dropdown-divider"></li>
+          <li><a class="dropdown-item" href="/auth/logout"><i class="bi bi-box-arrow-right me-2"></i>Sign Out</a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    <!-- Current Subscription -->
+    <div class="mb-5">
+      <h2 class="section-title"><i class="bi bi-stars me-2"></i>Your Subscription</h2>
+      <div class="card">
+        <div class="card-body" id="currentPlan">
+          <div class="text-center py-3">
+            <div class="spinner-border text-secondary" role="status"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pricing Plans -->
+    <div class="mb-5">
+      <h2 class="section-title text-center mb-4"><i class="bi bi-gem me-2"></i>Choose Your Plan</h2>
+      <div class="row" id="plansContainer">
+        <div class="col-12 text-center py-5">
+          <div class="spinner-border text-secondary" role="status"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Payment History -->
+    <div class="mb-5">
+      <h2 class="section-title"><i class="bi bi-receipt me-2"></i>Payment History</h2>
+      <div class="card">
+        <div class="card-body p-0" id="paymentHistory">
+          <div class="text-center py-3">
+            <div class="spinner-border text-secondary" role="status"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    let currentSubscription = null;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadSubscription();
+      loadPlans();
+      loadPayments();
+    });
+
+    async function loadSubscription() {
+      try {
+        const res = await fetch('/api/billing/subscription');
+        const data = await res.json();
+        currentSubscription = data.data.subscription;
+
+        const container = document.getElementById('currentPlan');
+        const sub = currentSubscription;
+
+        container.innerHTML = `
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h4 class="mb-1">${sub.name} Plan</h4>
+              <p class="mb-0 text-muted">
+                Status: <span class="badge ${sub.status === 'ACTIVE' ? 'bg-success' : 'bg-warning'}">${sub.status}</span>
+                ${sub.cancelAtPeriodEnd ? '<span class="badge bg-warning ms-2">Cancels at end of period</span>' : ''}
+              </p>
+              ${sub.currentPeriodEnd ? `<small class="text-muted">Next billing: ${new Date(sub.currentPeriodEnd).toLocaleDateString()}</small>` : ''}
+            </div>
+            <div>
+              ${sub.plan !== 'FREE' && sub.stripeSubscriptionId ? `
+                <button class="btn btn-outline-secondary" onclick="openPortal()">
+                  <i class="bi bi-gear me-2"></i>Manage
+                </button>
+              ` : ''}
+            </div>
+          </div>
+        `;
+      } catch (error) {
+        console.error('Error loading subscription:', error);
+      }
+    }
+
+    async function loadPlans() {
+      try {
+        const res = await fetch('/api/billing/plans');
+        const data = await res.json();
+
+        const container = document.getElementById('plansContainer');
+        const plans = data.data.plans;
+
+        container.innerHTML = plans.map((plan, idx) => `
+          <div class="col-md-6 col-lg-3 mb-4">
+            <div class="card pricing-card h-100 ${plan.id === 'FAMILY' ? 'featured' : ''}">
+              <div class="pricing-header">
+                <h4 class="mb-2">${plan.name}</h4>
+                <div class="price">
+                  ${plan.price === 0 ? 'Free' : '$' + plan.price.toFixed(2)}
+                </div>
+                ${plan.price > 0 ? '<div class="price-period">per month</div>' : ''}
+                ${currentSubscription?.plan === plan.id ? '<div class="current-badge">Current Plan</div>' : ''}
+              </div>
+              <div class="pricing-body d-flex flex-column">
+                <ul class="feature-list flex-grow-1">
+                  ${plan.features.map(f => `<li><i class="bi bi-check-circle-fill"></i>${f}</li>`).join('')}
+                </ul>
+                <div class="mt-3">
+                  ${getPlanButton(plan)}
+                </div>
+              </div>
+            </div>
+          </div>
+        `).join('');
+      } catch (error) {
+        console.error('Error loading plans:', error);
+      }
+    }
+
+    function getPlanButton(plan) {
+      if (currentSubscription?.plan === plan.id) {
+        return `<button class="btn btn-current w-100" disabled>Current Plan</button>`;
+      }
+      if (plan.price === 0) {
+        if (currentSubscription?.plan !== 'FREE') {
+          return `<button class="btn btn-outline-secondary w-100" onclick="cancelSubscription()">Downgrade</button>`;
+        }
+        return `<button class="btn btn-outline-secondary w-100" disabled>Free Plan</button>`;
+      }
+      return `<button class="btn btn-plan w-100" onclick="selectPlan('${plan.id}')">
+        ${currentSubscription?.plan === 'FREE' ? 'Start Free Trial' : 'Upgrade'}
+      </button>`;
+    }
+
+    async function selectPlan(planId) {
+      try {
+        const res = await fetch('/api/billing/checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ plan: planId }),
+        });
+        const data = await res.json();
+
+        if (data.success && data.data.url) {
+          window.location.href = data.data.url;
+        } else {
+          alert(data.error || 'Failed to start checkout');
+        }
+      } catch (error) {
+        alert('Error starting checkout');
+      }
+    }
+
+    async function openPortal() {
+      try {
+        const res = await fetch('/api/billing/portal', { method: 'POST' });
+        const data = await res.json();
+
+        if (data.success && data.data.url) {
+          window.location.href = data.data.url;
+        } else {
+          alert(data.error || 'Failed to open billing portal');
+        }
+      } catch (error) {
+        alert('Error opening billing portal');
+      }
+    }
+
+    async function cancelSubscription() {
+      if (!confirm('Are you sure you want to cancel? You will retain access until the end of your billing period.')) {
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/billing/cancel', { method: 'POST' });
+        const data = await res.json();
+
+        if (data.success) {
+          alert('Subscription cancelled. You will retain access until the end of your billing period.');
+          loadSubscription();
+        } else {
+          alert(data.error || 'Failed to cancel subscription');
+        }
+      } catch (error) {
+        alert('Error cancelling subscription');
+      }
+    }
+
+    async function loadPayments() {
+      try {
+        const res = await fetch('/api/billing/payments');
+        const data = await res.json();
+
+        const container = document.getElementById('paymentHistory');
+        const payments = data.data.payments;
+
+        if (payments.length > 0) {
+          container.innerHTML = `
+            <table class="table table-hover mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>Date</th>
+                  <th>Description</th>
+                  <th>Amount</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${payments.map(p => `
+                  <tr>
+                    <td>${new Date(p.createdAt).toLocaleDateString()}</td>
+                    <td>${p.description || 'Payment'}</td>
+                    <td>$${p.amount.toFixed(2)} ${p.currency}</td>
+                    <td>
+                      <span class="badge ${p.status === 'COMPLETED' ? 'bg-success' : p.status === 'FAILED' ? 'bg-danger' : 'bg-secondary'}">
+                        ${p.status}
+                      </span>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          `;
+        } else {
+          container.innerHTML = `
+            <div class="text-center py-4 text-muted">
+              <i class="bi bi-receipt fs-1"></i>
+              <p class="mt-2">No payment history</p>
+            </div>
+          `;
+        }
+      } catch (error) {
+        console.error('Error loading payments:', error);
+      }
+    }
+  </script>
+</body>
+</html>

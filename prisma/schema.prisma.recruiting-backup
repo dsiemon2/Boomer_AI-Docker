@@ -1,0 +1,420 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// PLATFORM LEVEL - Super Admin
+// ============================================
+
+model SuperAdmin {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================
+// COMPANY LEVEL - Multi-tenant
+// ============================================
+
+model Company {
+  id        String   @id @default(cuid())
+  name      String
+  domain    String   @unique
+  settings  String   @default("{}") // JSON settings
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users              User[]
+  jobRoles           JobRole[]
+  questionCategories QuestionCategory[]
+  interviews         Interview[]
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String
+  username  String?  // Optional username for login
+  password  String
+  name      String
+  role      String   @default("MANAGER") // COMPANY_ADMIN, MANAGER
+  isActive  Boolean  @default(true)
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Email verification
+  emailVerified           Boolean   @default(false)
+  emailVerificationToken  String?
+  emailVerificationExpires DateTime?
+
+  // Password reset
+  passwordResetToken   String?
+  passwordResetExpires DateTime?
+
+  // OAuth providers
+  googleId    String?
+  microsoftId String?
+  appleId     String?
+
+  interviewSessions InterviewSession[]
+
+  @@unique([email, companyId])
+  @@unique([username, companyId])
+  @@index([companyId])
+  @@index([emailVerificationToken])
+  @@index([passwordResetToken])
+}
+
+// ============================================
+// JOB ROLES & QUESTIONS
+// ============================================
+
+model JobRole {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  isActive    Boolean  @default(true)
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  categories QuestionCategory[]
+  interviews Interview[]
+
+  @@index([companyId])
+}
+
+model QuestionCategory {
+  id        String   @id @default(cuid())
+  name      String   // Technical, Behavioral, Culture Fit, etc.
+  order     Int      @default(0)
+  jobRoleId String
+  jobRole   JobRole  @relation(fields: [jobRoleId], references: [id], onDelete: Cascade)
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  questions Question[]
+
+  @@unique([name, jobRoleId])
+  @@index([companyId])
+  @@index([jobRoleId])
+}
+
+model Question {
+  id                 String           @id @default(cuid())
+  text               String
+  followUps          String           @default("[]") // JSON array of follow-up questions
+  evaluationCriteria String?          // What to look for in a good answer
+  timeAllocation     Int              @default(5)    // Minutes
+  isRequired         Boolean          @default(false)
+  order              Int              @default(0)
+  isActive           Boolean          @default(true)
+  categoryId         String
+  category           QuestionCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  @@index([categoryId])
+}
+
+// ============================================
+// INTERVIEWS
+// ============================================
+
+model Interview {
+  id             String   @id @default(cuid())
+  candidateName  String
+  candidateEmail String
+  candidatePhone String?
+  mode           String   @default("HYBRID") // AI_ONLY, HYBRID
+  status         String   @default("SCHEDULED") // SCHEDULED, IN_PROGRESS, COMPLETED, CANCELLED, NO_SHOW
+  scheduledAt    DateTime
+  duration       Int      @default(60) // Minutes
+  notes          String?  // Admin notes
+  jobRoleId      String
+  jobRole        JobRole  @relation(fields: [jobRoleId], references: [id])
+  companyId      String
+  company        Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  sessions InterviewSession[]
+  result   InterviewResult?
+
+  @@index([companyId])
+  @@index([jobRoleId])
+  @@index([status])
+  @@index([scheduledAt])
+}
+
+
+model InterviewSession {
+  id              String    @id @default(cuid())
+  teamsMeetingId  String?   // Microsoft Graph meeting ID
+  teamsMeetingUrl String?   // Join URL for the meeting
+  teamsJoinWebUrl String?   // Web join URL
+
+  // Web interview session fields
+  interviewToken  String    @unique @default(cuid()) // Token for candidate interview link
+  tokenExpiresAt  DateTime? // When the interview link expires
+  webSessionState String    @default("PENDING") // PENDING, READY, IN_PROGRESS, COMPLETED, EXPIRED
+
+  startedAt       DateTime?
+  endedAt         DateTime?
+  interviewId     String
+  interview       Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  managerId       String?
+  manager         User?     @relation(fields: [managerId], references: [id])
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  transcriptSegments TranscriptSegment[]
+
+  @@index([interviewId])
+  @@index([managerId])
+  @@index([interviewToken])
+}
+
+// Real-time transcript segments
+model TranscriptSegment {
+  id         String   @id @default(cuid())
+  sessionId  String
+  session    InterviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  speaker    String   // candidate or ai
+  text       String
+  questionId String?  // Which question this relates to
+  timestamp  DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([timestamp])
+}
+
+model InterviewResult {
+  id           String    @id @default(cuid())
+  transcript   String?   // Full transcript text
+  summary      String?   // AI-generated summary
+  scorecard    String    @default("{}") // JSON structured scores
+  managerNotes String?   // Manager's notes
+  overallScore Int?      // 1-5 rating
+  recommendation String? // STRONG_YES, YES, MAYBE, NO, STRONG_NO
+  interviewId  String    @unique
+  interview    Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+// ============================================
+// APP CONFIGURATION
+// ============================================
+
+model AppConfig {
+  id                   String   @id @default(cuid())
+  appName              String   @default("AI Recruiting Assistant")
+  selectedVoice        String   @default("alloy")
+  interviewMode        String   @default("hybrid") // ai_only, hybrid
+  maxInterviewMins     Int      @default(60)
+  transcriptionEnabled Boolean  @default(true)
+  autoSummaryEnabled   Boolean  @default(true)
+  primaryLanguage      String   @default("en")
+  updatedAt            DateTime @updatedAt
+}
+
+// ============================================
+// AUDIT LOG
+// ============================================
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String   // CREATE, UPDATE, DELETE, VIEW, LOGIN, LOGOUT
+  entity    String   // User, Interview, Question, etc.
+  entityId  String?
+  userId    String?
+  companyId String?
+  details   String   @default("{}") // JSON additional details
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([companyId])
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+// ============================================
+// AI AGENTS
+// ============================================
+
+model AIAgent {
+  id           String   @id @default(cuid())
+  name         String
+  description  String?
+  systemPrompt String?
+  model        String   @default("gpt-4o-realtime")
+  voice        String   @default("alloy")
+  temperature  Float    @default(0.7)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// ============================================
+// AI TOOLS
+// ============================================
+
+model AITool {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  type        String   @default("function") // function, api, webhook
+  schema      String   @default("{}") // JSON schema
+  endpoint    String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ============================================
+// WEBHOOKS
+// ============================================
+
+model Webhook {
+  id        String   @id @default(cuid())
+  name      String
+  url       String
+  events    String   @default("[]") // JSON array of event types
+  secret    String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================
+// SMS SETTINGS
+// ============================================
+
+model SMSSettings {
+  id             String   @id @default(cuid())
+  provider       String   @default("twilio") // twilio, vonage, etc.
+  accountSid     String?
+  authToken      String?
+  fromNumber     String?
+  enableReminders Boolean @default(true)
+  reminderHours  Int      @default(24)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+// ============================================
+// CALL TRANSFER
+// ============================================
+
+model CallTransfer {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  phoneNumber String
+  sipUri      String?
+  priority    Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ============================================
+// DTMF MENU
+// ============================================
+
+model DTMFMenu {
+  id        String   @id @default(cuid())
+  name      String
+  digit     String   // 0-9, *, #
+  action    String   // transfer, repeat, skip, end
+  targetId  String?  // Reference to target (e.g., transfer number)
+  prompt    String?  // Voice prompt to play
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================
+// LOGIC RULES
+// ============================================
+
+model LogicRule {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  trigger     String   // event that triggers the rule
+  conditions  String   @default("[]") // JSON array of conditions
+  actions     String   @default("[]") // JSON array of actions
+  priority    Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ============================================
+// FUNCTIONS (Custom Code)
+// ============================================
+
+model Function {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  code        String   // JavaScript code
+  parameters  String   @default("[]") // JSON array of parameters
+  returnType  String   @default("void")
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ============================================
+// PAYMENTS
+// ============================================
+
+model Payment {
+  id            String   @id @default(cuid())
+  amount        Float
+  currency      String   @default("USD")
+  status        String   @default("pending") // pending, completed, failed, refunded
+  method        String?  // card, bank, paypal
+  transactionId String?
+  description   String?
+  companyId     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([status])
+}
+
+// ============================================
+// LANGUAGES
+// ============================================
+
+model Language {
+  id          String   @id @default(cuid())
+  code        String   @unique // en, es, fr, de, etc.
+  name        String   // English, Spanish, French, etc.
+  nativeName  String   // English, Español, Français, etc.
+  flag        String   @default("🌐") // Emoji flag
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Boomer AI - Your Voice-First Life Assistant</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+  <style>
+    :root {
+      --primary-gradient: linear-gradient(135deg, #15803d 0%, #22c55e 100%);
+      --primary-dark: #15803d;
+      --primary-light: #22c55e;
+      --accent: #16a34a;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    /* Announcement Bar */
+    .announcement-bar {
+      background: var(--primary-gradient);
+      color: white;
+      padding: 10px 0;
+      font-size: 1rem;
+    }
+    .announcement-bar a {
+      color: #fef08a;
+      text-decoration: underline;
+    }
+
+    /* Navigation */
+    .navbar {
+      background: white !important;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .navbar-brand {
+      font-weight: bold;
+      color: var(--primary-dark) !important;
+      font-size: 1.5rem;
+    }
+    .navbar-brand i {
+      color: var(--primary-light);
+    }
+    .btn-login {
+      background: transparent;
+      border: 2px solid var(--accent);
+      color: var(--accent);
+      border-radius: 25px;
+      padding: 8px 20px;
+    }
+    .btn-login:hover {
+      background: var(--accent);
+      color: white;
+    }
+    .btn-signup {
+      background: var(--primary-gradient);
+      border: none;
+      color: white;
+      border-radius: 25px;
+      padding: 8px 20px;
+    }
+    .btn-signup:hover {
+      background: linear-gradient(135deg, #166534 0%, #16a34a 100%);
+      color: white;
+    }
+
+    /* Hero Section */
+    .hero-section {
+      background: var(--primary-gradient);
+      color: white;
+      padding: 100px 0;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero-section::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      right: -50%;
+      width: 100%;
+      height: 200%;
+      background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+    }
+    .hero-title {
+      font-size: 3.5rem;
+      font-weight: 700;
+      margin-bottom: 1.5rem;
+      line-height: 1.2;
+    }
+    .hero-subtitle {
+      font-size: 1.4rem;
+      opacity: 0.9;
+      margin-bottom: 2rem;
+      line-height: 1.6;
+    }
+    .hero-features {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-bottom: 2.5rem;
+    }
+    .hero-feature {
+      background: rgba(255,255,255,0.15);
+      padding: 10px 20px;
+      border-radius: 25px;
+      font-size: 1rem;
+      backdrop-filter: blur(5px);
+    }
+    .hero-feature i {
+      margin-right: 8px;
+    }
+    .hero-cta .btn {
+      padding: 15px 35px;
+      font-size: 1.2rem;
+      border-radius: 30px;
+    }
+    .btn-hero-primary {
+      background: white;
+      color: var(--primary-dark);
+      font-weight: 600;
+    }
+    .btn-hero-primary:hover {
+      background: #f0fdf4;
+      color: var(--accent);
+    }
+    .btn-hero-secondary {
+      background: transparent;
+      border: 2px solid white;
+      color: white;
+    }
+    .btn-hero-secondary:hover {
+      background: rgba(255,255,255,0.2);
+      color: white;
+    }
+    .hero-image {
+      text-align: center;
+    }
+    .hero-image i {
+      font-size: 18rem;
+      opacity: 0.25;
+    }
+
+    /* Features Section */
+    .features-section {
+      padding: 100px 0;
+      background: #f0fdf4;
+    }
+    .section-title {
+      font-size: 2.5rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
+    }
+    .feature-card {
+      text-align: center;
+      padding: 40px 30px;
+      border-radius: 20px;
+      transition: transform 0.3s, box-shadow 0.3s;
+      background: white;
+      height: 100%;
+    }
+    .feature-card:hover {
+      transform: translateY(-10px);
+      box-shadow: 0 20px 50px rgba(0,0,0,0.1);
+    }
+    .feature-icon {
+      width: 90px;
+      height: 90px;
+      background: var(--primary-gradient);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 25px;
+      font-size: 2.5rem;
+      color: white;
+    }
+    .feature-title {
+      font-size: 1.4rem;
+      font-weight: 600;
+      margin-bottom: 15px;
+      color: #333;
+    }
+    .feature-desc {
+      color: #6b7280;
+      font-size: 1.05rem;
+      line-height: 1.6;
+    }
+
+    /* How It Works */
+    .how-section {
+      padding: 100px 0;
+    }
+    .step-card {
+      text-align: center;
+      padding: 30px;
+    }
+    .step-number {
+      width: 60px;
+      height: 60px;
+      background: var(--primary-gradient);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 20px;
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: white;
+    }
+    .step-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+
+    /* Testimonials */
+    .testimonials-section {
+      padding: 100px 0;
+      background: #f0fdf4;
+    }
+    .testimonial-card {
+      background: white;
+      border-radius: 20px;
+      padding: 35px;
+      box-shadow: 0 5px 25px rgba(0,0,0,0.05);
+      height: 100%;
+    }
+    .testimonial-text {
+      font-size: 1.1rem;
+      font-style: italic;
+      color: #374151;
+      margin-bottom: 20px;
+      line-height: 1.7;
+    }
+    .testimonial-author {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+    .testimonial-avatar {
+      width: 55px;
+      height: 55px;
+      background: var(--primary-gradient);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 1.5rem;
+    }
+    .testimonial-name {
+      font-weight: 600;
+      margin-bottom: 0;
+    }
+    .testimonial-role {
+      color: #6b7280;
+      font-size: 0.9rem;
+    }
+
+    /* Pricing Section */
+    .pricing-section {
+      padding: 100px 0;
+    }
+    .pricing-card {
+      background: white;
+      border-radius: 25px;
+      padding: 40px;
+      box-shadow: 0 5px 30px rgba(0,0,0,0.08);
+      transition: all 0.3s;
+      height: 100%;
+      position: relative;
+      overflow: hidden;
+    }
+    .pricing-card:hover {
+      transform: translateY(-10px);
+      box-shadow: 0 20px 50px rgba(0,0,0,0.15);
+    }
+    .pricing-card.popular {
+      border: 3px solid var(--accent);
+    }
+    .pricing-card.popular::before {
+      content: 'MOST POPULAR';
+      position: absolute;
+      top: 20px;
+      right: -35px;
+      background: var(--accent);
+      color: white;
+      padding: 5px 45px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      transform: rotate(45deg);
+    }
+    .pricing-tier {
+      font-size: 1.2rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 15px;
+      color: #6b7280;
+    }
+    .pricing-price {
+      font-size: 3.5rem;
+      font-weight: 700;
+      color: #333;
+    }
+    .pricing-price span {
+      font-size: 1.1rem;
+      font-weight: 400;
+      color: #6b7280;
+    }
+    .pricing-desc {
+      color: #6b7280;
+      margin-bottom: 25px;
+    }
+    .pricing-features {
+      list-style: none;
+      padding: 0;
+      margin: 0 0 30px 0;
+    }
+    .pricing-features li {
+      padding: 12px 0;
+      border-bottom: 1px solid #f1f5f9;
+      display: flex;
+      align-items: center;
+      font-size: 1rem;
+    }
+    .pricing-features li:last-child {
+      border-bottom: none;
+    }
+    .pricing-features li i {
+      color: var(--accent);
+      margin-right: 12px;
+      font-size: 1.1rem;
+    }
+    .pricing-features li.disabled {
+      color: #9ca3af;
+    }
+    .pricing-features li.disabled i {
+      color: #d1d5db;
+    }
+    .btn-pricing {
+      padding: 15px 30px;
+      border-radius: 30px;
+      font-weight: 600;
+      width: 100%;
+      font-size: 1.1rem;
+    }
+    .btn-pricing-primary {
+      background: var(--primary-gradient);
+      border: none;
+      color: white;
+    }
+    .btn-pricing-primary:hover {
+      background: linear-gradient(135deg, #166534 0%, #16a34a 100%);
+      color: white;
+    }
+    .btn-pricing-outline {
+      background: transparent;
+      border: 2px solid var(--accent);
+      color: var(--accent);
+    }
+    .btn-pricing-outline:hover {
+      background: var(--accent);
+      color: white;
+    }
+
+    /* CTA Section */
+    .cta-section {
+      background: var(--primary-gradient);
+      padding: 80px 0;
+      color: white;
+      text-align: center;
+    }
+    .cta-section h2 {
+      font-size: 2.8rem;
+      font-weight: 700;
+      margin-bottom: 20px;
+    }
+    .cta-section p {
+      font-size: 1.3rem;
+      opacity: 0.9;
+      margin-bottom: 35px;
+    }
+    .cta-section .btn {
+      padding: 18px 45px;
+      font-size: 1.2rem;
+      border-radius: 35px;
+      background: white;
+      color: var(--primary-dark);
+      font-weight: 600;
+    }
+    .cta-section .btn:hover {
+      background: #f0fdf4;
+      color: var(--accent);
+    }
+
+    /* Footer */
+    .footer {
+      background: #1f2937;
+      color: white;
+      padding: 60px 0 30px;
+    }
+    .footer h5 {
+      margin-bottom: 25px;
+      font-weight: 600;
+    }
+    .footer a {
+      color: rgba(255,255,255,0.7);
+      text-decoration: none;
+      display: block;
+      margin-bottom: 12px;
+      transition: color 0.2s;
+    }
+    .footer a:hover {
+      color: white;
+    }
+    .footer-brand {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 15px;
+    }
+    .footer-brand i {
+      color: var(--primary-light);
+    }
+    .footer-bottom {
+      border-top: 1px solid rgba(255,255,255,0.1);
+      padding-top: 25px;
+      margin-top: 40px;
+      text-align: center;
+      color: rgba(255,255,255,0.5);
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .hero-title {
+        font-size: 2.5rem;
+      }
+      .hero-subtitle {
+        font-size: 1.2rem;
+      }
+      .hero-image {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Announcement Bar -->
+  <div class="announcement-bar text-center">
+    <div class="container">
+      <i class="bi bi-megaphone me-2"></i>
+      Voice-first AI assistant for organizing your life - <a href="<%= typeof basePath !== 'undefined' ? basePath : '' %>/auth/register">Try it free for 14 days!</a>
+    </div>
+  </div>
+
+  <!-- Navigation -->
+  <nav class="navbar navbar-expand-lg navbar-light sticky-top">
+    <div class="container">
+      <a class="navbar-brand" href="<%= typeof basePath !== 'undefined' ? basePath : '' %>/">
+        <i class="bi bi-heart-pulse me-2"></i>Boomer AI
+      </a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav me-auto">
+          <li class="nav-item">
+            <a class="nav-link" href="#features">Features</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#how-it-works">How It Works</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#testimonials">Testimonials</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#pricing">Pricing</a>
+          </li>
+        </ul>
+        <div class="d-flex gap-2">
+          <a href="<%= typeof basePath !== 'undefined' ? basePath : '' %>/auth/login" class="btn btn-login">Sign In</a>
+          <a href="<%= typeof basePath !== 'undefined' ? basePath : '' %>/auth/register" class="btn btn-signup">Get Started</a>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <section class="hero-section">
+    <div class="container">
+      <div class="row align-items-center">
+        <div class="col-lg-7">
+          <h1 class="hero-title">Your Life, Simplified with Voice AI</h1>
+          <p class="hero-subtitle">The voice-first assistant that helps you stay organized, manage medications, remember appointments, and keep in touch with loved ones.</p>
+          <div class="hero-features">
+            <span class="hero-feature"><i class="bi bi-calendar-event"></i> Appointments</span>
+            <span class="hero-feature"><i class="bi bi-capsule"></i> Medications</span>
+            <span class="hero-feature"><i class="bi bi-people"></i> Contacts</span>
+            <span class="hero-feature"><i class="bi bi-journal-text"></i> Notes</span>
+            <span class="hero-feature"><i class="bi bi-mic"></i> Voice Control</span>
+          </div>
+          <div class="hero-cta">
+            <a href="<%= typeof basePath !== 'undefined' ? basePath : '' %>/auth/register" class="btn btn-hero-primary me-3">Start Free Trial</a>
+            <a href="#features" class="btn btn-hero-secondary">Learn More</a>
+          </div>
+        </div>
+        <div class="col-lg-5 hero-image d-none d-lg-block">
+          <i class="bi bi-heart-pulse"></i>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features Section -->
+  <section class="features-section" id="features">
+    <div class="container">
+      <div class="text-center mb-5">
+        <h2 class="section-title">Everything You Need, Voice-Activated</h2>
+        <p class="text-muted fs-5">Speak naturally, stay organized effortlessly</p>
+      </div>
+      <div class="row g-4">
+        <div class="col-md-4">
+          <div class="feature-card">
+            <div class="feature-icon">
+              <i class="bi bi-calendar-event"></i>
+            </div>
+            <h4 class="feature-title">Smart Calendar</h4>
+            <p class="feature-desc">Schedule appointments, set reminders, and never miss an important date. Just say "Add doctor's appointment Tuesday at 2pm."</p>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="feature-card">
+            <div class="feature-icon">
+              <i class="bi bi-capsule"></i>
+            </div>
+            <h4 class="feature-title">Medication Tracking</h4>
+            <p class="feature-desc">Track your medications with timely reminders. Never miss a dose with voice-activated confirmations and refill alerts.</p>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="feature-card">
+            <div class="feature-icon">
+              <i class="bi bi-person-rolodex"></i>
+            </div>
+            <h4 class="feature-title">Contact Management</h4>
+            <p class="feature-desc">Keep important contacts at your fingertips. Say "Call my daughter" or "Text Dr. Smith" and let AI handle the rest.</p>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="feature-card">
+            <div class="feature-icon">
+              <i class="bi bi-journal-text"></i>
+            </div>
+            <h4 class="feature-title">Voice Notes</h4>
+            <p class="feature-desc">Capture thoughts instantly with voice-to-text notes. Say "Remember to water the plants" and it's saved automatically.</p>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="feature-card">
+            <div class="feature-icon">
+              <i class="bi bi-bell"></i>
+            </div>
+            <h4 class="feature-title">Smart Reminders</h4>
+            <p class="feature-desc">Get gentle reminders via voice, text, or push notifications. Customizable frequency that works for you.</p>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="feature-card">
+            <div class="feature-icon">
+              <i class="bi bi-translate"></i>
+            </div>
+            <h4 class="feature-title">24 Languages</h4>
+            <p class="feature-desc">Speak in your preferred language. Our AI understands and responds in 24 different languages fluently.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- How It Works -->
+  <section class="how-section" id="how-it-works">
+    <div class="container">
+      <div class="text-center mb-5">
+        <h2 class="section-title">How It Works</h2>
+        <p class="text-muted fs-5">Get started in minutes, not hours</p>
+      </div>
+      <div class="row g-4">
+        <div class="col-md-3">
+          <div class="step-card">
+            <div class="step-number">1</div>
+            <h4 class="step-title">Sign Up</h4>
+            <p class="text-muted">Create your free account in under 2 minutes</p>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="step-card">
+            <div class="step-number">2</div>
+            <h4 class="step-title">Set Up Profile</h4>
+            <p class="text-muted">Add your info, contacts, and preferences</p>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="step-card">
+            <div class="step-number">3</div>
+            <h4 class="step-title">Start Talking</h4>
+            <p class="text-muted">Just speak naturally to add or retrieve info</p>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="step-card">
+            <div class="step-number">4</div>
+            <h4 class="step-title">Stay Organized</h4>
+            <p class="text-muted">Let AI keep you on track with smart reminders</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Testimonials -->
+  <section class="testimonials-section" id="testimonials">
+    <div class="container">
+      <div class="text-center mb-5">
+        <h2 class="section-title">What Our Users Say</h2>
+        <p class="text-muted fs-5">Thousands are already staying organized</p>
+      </div>
+      <div class="row g-4">
+        <div class="col-md-4">
+          <div class="testimonial-card">
+            <p class="testimonial-text">"I used to miss medication doses all the time. Now Boomer AI reminds me and I just say 'Done!' It's like having a helpful companion."</p>
+            <div class="testimonial-author">
+              <div class="testimonial-avatar"><i class="bi bi-person"></i></div>
+              <div>
+                <p class="testimonial-name">Margaret S.</p>
+                <p class="testimonial-role">Retired Teacher, 72</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="testimonial-card">
+            <p class="testimonial-text">"My dad lives alone and this gives our family peace of mind. We can see he's taking meds and keeping appointments. Game changer!"</p>
+            <div class="testimonial-author">
+              <div class="testimonial-avatar"><i class="bi bi-person"></i></div>
+              <div>
+                <p class="testimonial-name">James T.</p>
+                <p class="testimonial-role">Son & Caregiver</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="testimonial-card">
+            <p class="testimonial-text">"The voice control is incredible. I just talk to it like a friend. 'Remind me about book club Thursday' - and it's done. So simple!"</p>
+            <div class="testimonial-author">
+              <div class="testimonial-avatar"><i class="bi bi-person"></i></div>
+              <div>
+                <p class="testimonial-name">Robert K.</p>
+                <p class="testimonial-role">Retired Engineer, 68</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pricing Section -->
+  <section class="pricing-section" id="pricing">
+    <div class="container">
+      <div class="text-center mb-5">
+        <h2 class="section-title">Simple, Honest Pricing</h2>
+        <p class="text-muted fs-5">Start free. Upgrade when you need more.</p>
+      </div>
+      <div class="row g-4 justify-content-center">
+        <!-- Free Plan -->
+        <div class="col-lg-4 col-md-6">
+          <div class="pricing-card">
+            <div class="pricing-tier">Free</div>
+            <div class="pricing-price">$0<span>/mo</span></div>
+            <p class="pricing-desc">Perfect for getting started</p>
+            <ul class="pricing-features">
+              <li><i class="bi bi-check-circle-fill"></i> 10 Appointments</li>
+              <li><i class="bi bi-check-circle-fill"></i> 5 Medications</li>
+              <li><i class="bi bi-check-circle-fill"></i> 20 Contacts</li>
+              <li><i class="bi bi-check-circle-fill"></i> Voice Commands</li>
+              <li class="disabled"><i class="bi bi-x-circle"></i> SMS Reminders</li>
+              <li class="disabled"><i class="bi bi-x-circle"></i> Caregiver Access</li>
+            </ul>
+            <a href="<%= typeof basePath !== 'undefined' ? basePath : '' %>/auth/register?plan=free" class="btn btn-pricing btn-pricing-outline">Get Started Free</a>
+          </div>
+        </div>
+        <!-- Plus Plan -->
+        <div class="col-lg-4 col-md-6">
+          <div class="pricing-card popular">
+            <div class="pricing-tier" style="color: var(--accent);">Plus</div>
+            <div class="pricing-price">$9.99<span>/mo</span></div>
+            <p class="pricing-desc">For daily life management</p>
+            <ul class="pricing-features">
+              <li><i class="bi bi-check-circle-fill"></i> Unlimited Appointments</li>
+              <li><i class="bi bi-check-circle-fill"></i> Unlimited Medications</li>
+              <li><i class="bi bi-check-circle-fill"></i> Unlimited Contacts</li>
+              <li><i class="bi bi-check-circle-fill"></i> SMS Reminders</li>
+              <li><i class="bi bi-check-circle-fill"></i> Caregiver Access</li>
+              <li><i class="bi bi-check-circle-fill"></i> Priority Support</li>
+            </ul>
+            <a href="<%= typeof basePath !== 'undefined' ? basePath : '' %>/auth/register?plan=plus" class="btn btn-pricing btn-pricing-primary">Start Free Trial</a>
+          </div>
+        </div>
+        <!-- Family Plan -->
+        <div class="col-lg-4 col-md-6">
+          <div class="pricing-card">
+            <div class="pricing-tier" style="color: #0ea5e9;">Family</div>
+            <div class="pricing-price">$24.99<span>/mo</span></div>
+            <p class="pricing-desc">For the whole family</p>
+            <ul class="pricing-features">
+              <li><i class="bi bi-check-circle-fill"></i> Everything in Plus</li>
+              <li><i class="bi bi-check-circle-fill"></i> Up to 5 Family Members</li>
+              <li><i class="bi bi-check-circle-fill"></i> Shared Calendars</li>
+              <li><i class="bi bi-check-circle-fill"></i> Emergency Alerts</li>
+              <li><i class="bi bi-check-circle-fill"></i> Health Reports</li>
+              <li><i class="bi bi-check-circle-fill"></i> Dedicated Support</li>
+            </ul>
+            <a href="<%= typeof basePath !== 'undefined' ? basePath : '' %>/auth/register?plan=family" class="btn btn-pricing btn-pricing-outline">Start Free Trial</a>
+          </div>
+        </div>
+      </div>
+      <div class="text-center mt-5">
+        <p class="text-muted"><i class="bi bi-shield-check me-2"></i>14-day free trial on all paid plans. No credit card required.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA Section -->
+  <section class="cta-section">
+    <div class="container">
+      <h2>Ready to Simplify Your Life?</h2>
+      <p>Join thousands who are staying organized with voice-first AI</p>
+      <a href="<%= typeof basePath !== 'undefined' ? basePath : '' %>/auth/register" class="btn">Start Your Free Trial <i class="bi bi-arrow-right ms-2"></i></a>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <div class="col-md-4">
+          <div class="footer-brand">
+            <i class="bi bi-heart-pulse me-2"></i>Boomer AI
+          </div>
+          <p class="text-muted mb-3">Your voice-first life assistant</p>
+          <p class="text-muted small">Helping you stay organized, healthy, and connected with the people who matter most.</p>
+        </div>
+        <div class="col-md-2">
+          <h5>Product</h5>
+          <a href="#features">Features</a>
+          <a href="#how-it-works">How It Works</a>
+          <a href="#pricing">Pricing</a>
+        </div>
+        <div class="col-md-2">
+          <h5>Support</h5>
+          <a href="#">Help Center</a>
+          <a href="#">Contact Us</a>
+          <a href="#">FAQ</a>
+        </div>
+        <div class="col-md-2">
+          <h5>Legal</h5>
+          <a href="#">Privacy Policy</a>
+          <a href="#">Terms of Service</a>
+          <a href="#">HIPAA Compliance</a>
+        </div>
+        <div class="col-md-2">
+          <h5>Connect</h5>
+          <a href="#"><i class="bi bi-facebook me-2"></i>Facebook</a>
+          <a href="#"><i class="bi bi-twitter-x me-2"></i>Twitter</a>
+          <a href="#"><i class="bi bi-youtube me-2"></i>YouTube</a>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p>&copy; 2025 Boomer AI. All rights reserved. Made with <i class="bi bi-heart-fill text-danger"></i> for better living.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
