@@ -570,9 +570,9 @@ If they miss doses frequently, gently encourage them to set up caregiver notific
     create: {
       id: 'sms-default',
       provider: 'twilio',
-      accountSid: 'AC_YOUR_TWILIO_SID',
-      authToken: 'YOUR_AUTH_TOKEN',
-      fromNumber: '+15551234567',
+      accountSid: process.env.TWILIO_ACCOUNT_SID || '',
+      authToken: process.env.TWILIO_AUTH_TOKEN || '',
+      fromNumber: process.env.TWILIO_PHONE_NUMBER || '',
       enableReminders: true,
       isActive: true,
     },

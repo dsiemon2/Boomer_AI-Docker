@@ -60,6 +60,7 @@ docker compose up -d
 | Database | Prisma ORM + SQLite |
 | Frontend | EJS templates + Bootstrap 5 |
 | Voice AI | OpenAI Realtime API |
+| SMS | Twilio (medication & appointment reminders) |
 | Container | Docker + nginx reverse proxy |
 
 ## Project Structure
@@ -118,6 +119,11 @@ PORT=3000                   # Internal app port
 ADMIN_PORT=3001             # Internal admin port
 DATABASE_URL=file:/app/data/app.db
 ADMIN_TOKEN=admin           # Admin panel token
+
+# Twilio SMS (optional)
+TWILIO_ACCOUNT_SID=your-twilio-sid
+TWILIO_AUTH_TOKEN=your-twilio-token
+TWILIO_PHONE_NUMBER=+1234567890
 ```
 
 ## Color Theme

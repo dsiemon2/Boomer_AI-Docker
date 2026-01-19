@@ -18,6 +18,9 @@ declare global {
   }
 }
 
+// Export AuthRequest type for use in route handlers
+export type AuthRequest = Request;
+
 /**
  * Middleware to require authentication
  * Redirects to login if not authenticated

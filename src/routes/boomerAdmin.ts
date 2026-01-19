@@ -1236,9 +1236,9 @@ router.get('/teams', async (req, res) => {
     // Get upcoming appointments that could be linked to Teams
     const appointments = await prisma.appointment.findMany({
       where: {
-        startTime: { gte: new Date() },
+        startAt: { gte: new Date() },
       },
-      orderBy: { startTime: 'asc' },
+      orderBy: { startAt: 'asc' },
       take: 50,
     });
 
