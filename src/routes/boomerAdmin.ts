@@ -2004,4 +2004,292 @@ router.post('/knowledge-base/bulk-reprocess', async (req, res) => {
   }
 });
 
+// ============================================
+// TRIAL CODES
+// ============================================
+
+router.get('/trial-codes', requireToken, async (req, res) => {
+  const branding = await getBranding();
+  res.render('admin/trial-codes', { token: req.query.token, basePath, branding });
+});
+
+router.get('/api/trial-codes', async (req, res) => {
+  try {
+    const codes = await prisma.trialCode.findMany({ orderBy: { createdAt: 'desc' } });
+    const stats = {
+      total: codes.length,
+      pending: codes.filter(c => c.status === 'PENDING').length,
+      redeemed: codes.filter(c => c.status === 'REDEEMED').length,
+      expired: codes.filter(c => c.status === 'EXPIRED').length
+    };
+    res.json({ success: true, codes, stats });
+  } catch (err) {
+    logger.error({ err }, 'Get trial codes error');
+    res.json({ success: true, codes: [], stats: { total: 0, pending: 0, redeemed: 0, expired: 0 } });
+  }
+});
+
+router.post('/api/trial-codes', async (req, res) => {
+  try {
+    const { email, phone, trialDays = 14, expiresDays = 30 } = req.body;
+    const code = 'TRIAL-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+    const expiresAt = new Date(Date.now() + expiresDays * 24 * 60 * 60 * 1000);
+    const trialCode = await prisma.trialCode.create({
+      data: { code, email, phone, trialDays, expiresAt }
+    });
+    res.json({ success: true, code: trialCode });
+  } catch (err) {
+    logger.error({ err }, 'Create trial code error');
+    res.status(500).json({ success: false, error: 'Failed to create trial code' });
+  }
+});
+
+router.post('/api/trial-codes/:id/extend', async (req, res) => {
+  try {
+    const { days = 7 } = req.body;
+    const code = await prisma.trialCode.findUnique({ where: { id: req.params.id } });
+    if (!code) return res.status(404).json({ success: false, error: 'Code not found' });
+    const newExpiry = new Date(code.expiresAt.getTime() + days * 24 * 60 * 60 * 1000);
+    await prisma.trialCode.update({ where: { id: req.params.id }, data: { expiresAt: newExpiry } });
+    res.json({ success: true });
+  } catch (err) {
+    logger.error({ err }, 'Extend trial code error');
+    res.status(500).json({ success: false, error: 'Failed to extend code' });
+  }
+});
+
+router.post('/api/trial-codes/:id/revoke', async (req, res) => {
+  try {
+    await prisma.trialCode.update({ where: { id: req.params.id }, data: { status: 'REVOKED' } });
+    res.json({ success: true });
+  } catch (err) {
+    logger.error({ err }, 'Revoke trial code error');
+    res.status(500).json({ success: false, error: 'Failed to revoke code' });
+  }
+});
+
+// ============================================
+// ACCOUNT SETTINGS
+// ============================================
+
+router.get('/account', requireToken, async (req, res) => {
+  const branding = await getBranding();
+  const user = await getDemoUser();
+  res.render('admin/account', {
+    token: req.query.token,
+    basePath,
+    branding,
+    user,
+    userName: user?.name || 'Demo User',
+    userEmail: user?.email || 'demo@boomerai.com'
+  });
+});
+
+router.put('/api/account/name', async (req, res) => {
+  try {
+    const { name } = req.body;
+    const user = await getDemoUser();
+    if (user) {
+      await prisma.user.update({ where: { id: user.id }, data: { name } });
+    }
+    res.json({ success: true });
+  } catch (err) {
+    logger.error({ err }, 'Update name error');
+    res.status(500).json({ success: false, error: 'Failed to update name' });
+  }
+});
+
+router.put('/api/account/email', async (req, res) => {
+  try {
+    const { email } = req.body;
+    const user = await getDemoUser();
+    if (user) {
+      await prisma.user.update({ where: { id: user.id }, data: { email } });
+    }
+    res.json({ success: true });
+  } catch (err) {
+    logger.error({ err }, 'Update email error');
+    res.status(500).json({ success: false, error: 'Failed to update email' });
+  }
+});
+
+router.put('/api/account/phone', async (req, res) => {
+  try {
+    const { phone } = req.body;
+    const user = await getDemoUser();
+    if (user) {
+      await prisma.user.update({ where: { id: user.id }, data: { phone } });
+    }
+    res.json({ success: true });
+  } catch (err) {
+    logger.error({ err }, 'Update phone error');
+    res.status(500).json({ success: false, error: 'Failed to update phone' });
+  }
+});
+
+router.put('/api/account/password', async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    // In production, verify current password and hash new one
+    const user = await getDemoUser();
+    if (user) {
+      await prisma.user.update({ where: { id: user.id }, data: { password: newPassword } });
+    }
+    res.json({ success: true });
+  } catch (err) {
+    logger.error({ err }, 'Update password error');
+    res.status(500).json({ success: false, error: 'Failed to update password' });
+  }
+});
+
+// ============================================
+// MY SUBSCRIPTION
+// ============================================
+
+router.get('/my-subscription', requireToken, async (req, res) => {
+  const branding = await getBranding();
+  res.render('admin/my-subscription', { token: req.query.token, basePath, branding });
+});
+
+router.get('/api/my-subscription', async (req, res) => {
+  try {
+    const user = await getDemoUser();
+    if (!user) return res.json({ success: true, subscription: null });
+
+    const subscription = await prisma.subscription.findUnique({ where: { userId: user.id } });
+    if (!subscription) {
+      return res.json({
+        success: true,
+        subscription: {
+          plan: { name: 'Free', price: 0, features: 'Basic features' },
+          status: 'ACTIVE'
+        }
+      });
+    }
+
+    // Get plan details
+    let plan = null;
+    try {
+      plan = await prisma.subscriptionPlan.findFirst({ where: { code: subscription.plan } });
+    } catch (e) {
+      // Plan table may not exist yet
+    }
+
+    res.json({
+      success: true,
+      subscription: {
+        ...subscription,
+        plan: plan || { name: subscription.plan, price: 0, features: 'Basic features', billingPeriod: 'monthly' }
+      }
+    });
+  } catch (err) {
+    logger.error({ err }, 'Get subscription error');
+    res.json({ success: true, subscription: { plan: { name: 'Free', price: 0 }, status: 'ACTIVE' } });
+  }
+});
+
+router.post('/api/subscription/cancel', async (req, res) => {
+  try {
+    const user = await getDemoUser();
+    if (user) {
+      await prisma.subscription.update({
+        where: { userId: user.id },
+        data: { status: 'CANCELLED', cancelAtPeriodEnd: true }
+      });
+    }
+    res.json({ success: true });
+  } catch (err) {
+    logger.error({ err }, 'Cancel subscription error');
+    res.status(500).json({ success: false, error: 'Failed to cancel subscription' });
+  }
+});
+
+router.post('/api/subscription/resume', async (req, res) => {
+  try {
+    const user = await getDemoUser();
+    if (user) {
+      await prisma.subscription.update({
+        where: { userId: user.id },
+        data: { status: 'ACTIVE', cancelAtPeriodEnd: false }
+      });
+    }
+    res.json({ success: true });
+  } catch (err) {
+    logger.error({ err }, 'Resume subscription error');
+    res.status(500).json({ success: false, error: 'Failed to resume subscription' });
+  }
+});
+
+// ============================================
+// PRICING PLANS
+// ============================================
+
+router.get('/pricing', requireToken, async (req, res) => {
+  const branding = await getBranding();
+  res.render('admin/pricing', { token: req.query.token, basePath, branding });
+});
+
+router.get('/api/pricing', async (req, res) => {
+  try {
+    let plans = [];
+    try {
+      plans = await prisma.subscriptionPlan.findMany({
+        where: { isActive: true },
+        orderBy: { sortOrder: 'asc' }
+      });
+    } catch (e) {
+      // Fallback if table doesn't exist
+    }
+
+    if (plans.length === 0) {
+      plans = [
+        { id: 'free', code: 'FREE', name: 'Free', price: 0, description: 'Basic features', features: 'Voice Commands,Basic Reminders,5 Contacts', billingPeriod: 'monthly' },
+        { id: 'plus', code: 'PLUS', name: 'Plus', price: 9.99, description: 'Enhanced features', features: 'Unlimited Contacts,SMS Reminders,Caregiver Access,Priority Support', billingPeriod: 'monthly' },
+        { id: 'family', code: 'FAMILY', name: 'Family', price: 19.99, description: 'For the whole family', features: 'Up to 5 Users,Shared Calendar,Family Dashboard,All Plus Features', billingPeriod: 'monthly' },
+        { id: 'premium', code: 'PREMIUM', name: 'Premium', price: 29.99, description: 'All features unlocked', features: 'Unlimited Users,API Access,Custom Integrations,Dedicated Support,All Features', billingPeriod: 'monthly' }
+      ];
+    }
+
+    const user = await getDemoUser();
+    let currentPlanId = 'free';
+    if (user) {
+      const sub = await prisma.subscription.findUnique({ where: { userId: user.id } });
+      if (sub) currentPlanId = sub.plan.toLowerCase();
+    }
+
+    res.json({ success: true, plans, currentPlanId });
+  } catch (err) {
+    logger.error({ err }, 'Get pricing error');
+    res.json({ success: true, plans: [], currentPlanId: null });
+  }
+});
+
+router.post('/api/subscription/subscribe/:planId', async (req, res) => {
+  try {
+    const { planId } = req.params;
+    const user = await getDemoUser();
+
+    // In production, this would create a Stripe checkout session
+    // For now, just update the subscription
+    if (user) {
+      const existingSub = await prisma.subscription.findUnique({ where: { userId: user.id } });
+      if (existingSub) {
+        await prisma.subscription.update({
+          where: { userId: user.id },
+          data: { plan: planId.toUpperCase(), status: 'ACTIVE' }
+        });
+      } else {
+        await prisma.subscription.create({
+          data: { userId: user.id, plan: planId.toUpperCase(), status: 'ACTIVE' }
+        });
+      }
+    }
+
+    res.json({ success: true, message: 'Subscription updated' });
+  } catch (err) {
+    logger.error({ err }, 'Subscribe error');
+    res.status(500).json({ success: false, error: 'Failed to subscribe' });
+  }
+});
+
 export default router;

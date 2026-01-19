@@ -235,6 +235,10 @@ Boomer_AI-Docker/
 
 - Calendar/Appointments
 - Medications tracking with reminders
+- Trial Codes management
+- Account Settings (profile, password, 2FA)
+- Subscription Management (my-subscription, pricing)
+- SMS Settings (Twilio integration)
 
 ## Payment Gateways
 

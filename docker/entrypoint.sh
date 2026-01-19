@@ -6,7 +6,7 @@ echo "Starting Boomer AI..."
 # Initialize database if it doesn't exist
 if [ ! -f /app/data/app.db ]; then
     echo "Initializing database..."
-    npx prisma db push --skip-generate
+    npx prisma db push --skip-generate --accept-data-loss
     echo "Seeding database..."
     npx prisma db seed
     echo "Database initialized successfully!"

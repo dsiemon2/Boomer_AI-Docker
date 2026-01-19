@@ -34,8 +34,15 @@
     <li class="nav-item"><a class="nav-link <%= active === 'teams' ? 'active' : '' %>" href="<%= basePath || '/BoomerAI' %>/admin/teams?token=<%= token %>"><i class="bi bi-microsoft-teams"></i> Teams</a></li>
     <div class="nav-divider"></div>
     <div class="nav-section">Billing</div>
+    <li class="nav-item"><a class="nav-link <%= active === 'trial-codes' ? 'active' : '' %>" href="<%= basePath || '/BoomerAI' %>/admin/trial-codes?token=<%= token %>"><i class="bi bi-ticket-perforated"></i> Trial Codes</a></li>
     <li class="nav-item"><a class="nav-link <%= active === 'payment-gateways' ? 'active' : '' %>" href="<%= basePath || '/BoomerAI' %>/admin/payment-settings?token=<%= token %>"><i class="bi bi-credit-card-2-front"></i> Payment Gateways</a></li>
     <li class="nav-item"><a class="nav-link <%= active === 'transactions' ? 'active' : '' %>" href="<%= basePath || '/BoomerAI' %>/admin/payments?token=<%= token %>"><i class="bi bi-receipt"></i> Transactions</a></li>
+
+    <div class="nav-divider"></div>
+    <div class="nav-section">Account</div>
+    <li class="nav-item"><a class="nav-link <%= active === 'account' ? 'active' : '' %>" href="<%= basePath || '/BoomerAI' %>/admin/account?token=<%= token %>"><i class="bi bi-shield-check"></i> Account Settings</a></li>
+    <li class="nav-item"><a class="nav-link <%= active === 'my-subscription' ? 'active' : '' %>" href="<%= basePath || '/BoomerAI' %>/admin/my-subscription?token=<%= token %>"><i class="bi bi-person-badge"></i> My Subscription</a></li>
+    <li class="nav-item"><a class="nav-link <%= active === 'pricing' ? 'active' : '' %>" href="<%= basePath || '/BoomerAI' %>/admin/pricing?token=<%= token %>"><i class="bi bi-tags"></i> Pricing Plans</a></li>
 
     <div class="nav-divider"></div>
     <div class="nav-section">System</div>

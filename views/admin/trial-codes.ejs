@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trial Codes - Boomer AI</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+  <script>window.APP_BASE_PATH = '<%= basePath || "/BoomerAI" %>';</script>
+  <style>
+    :root {
+      --sidebar-bg: <%= branding?.primaryColor || '#16a34a' %>;
+      --primary-color: <%= branding?.primaryColor || '#16a34a' %>;
+    }
+    .sidebar { background: var(--sidebar-bg); height: calc(100vh - 56px); position: sticky; top: 56px; }
+    .sidebar .nav-link { color: rgba(255,255,255,0.8); padding: 0.75rem 1rem; }
+    .sidebar .nav-link:hover, .sidebar .nav-link.active { color: #fff; background: rgba(255,255,255,0.1); }
+    .sidebar .nav-link i { margin-right: 0.5rem; }
+    .main-content { background: #f8f9fa; min-height: 100vh; }
+    .nav-divider { border-top: 1px solid rgba(255,255,255,0.2); margin: 0.5rem 0; }
+    .nav-section { color: rgba(255,255,255,0.5); font-size: 0.75rem; padding: 0.5rem 1rem; text-transform: uppercase; }
+    .stat-card { background: #fff; border-radius: 12px; padding: 1.5rem; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .stat-card h3 { font-size: 2rem; margin: 0; color: var(--primary-color); }
+    .badge-pending { background: #ffc107; color: #000; }
+    .badge-sent { background: #17a2b8; }
+    .badge-redeemed { background: #28a745; }
+    .badge-expired { background: #6c757d; }
+    .badge-revoked { background: #dc3545; }
+  </style>
+</head>
+<body>
+  <div class="container-fluid">
+    <div class="row">
+      <%- include('_sidebar', { token, active: 'trial-codes', basePath: basePath || '/BoomerAI', branding }) %>
+      <main class="col-md-10 ms-sm-auto main-content p-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <h2><i class="bi bi-ticket-perforated me-2" style="color: var(--primary-color);"></i>Trial Codes</h2>
+          <button class="btn btn-success" onclick="showCreateModal()"><i class="bi bi-plus-lg me-1"></i> Create Code</button>
+        </div>
+        <div class="row mb-4">
+          <div class="col-md-3"><div class="stat-card"><h3 id="totalCodes">0</h3><p>Total</p></div></div>
+          <div class="col-md-3"><div class="stat-card"><h3 id="pendingCodes">0</h3><p>Pending</p></div></div>
+          <div class="col-md-3"><div class="stat-card"><h3 id="redeemedCodes">0</h3><p>Redeemed</p></div></div>
+          <div class="col-md-3"><div class="stat-card"><h3 id="expiredCodes">0</h3><p>Expired</p></div></div>
+        </div>
+        <div class="card">
+          <div class="card-body">
+            <table class="table table-hover">
+              <thead><tr><th>Code</th><th>Email/Phone</th><th>Status</th><th>Trial Days</th><th>Expires</th><th>Actions</th></tr></thead>
+              <tbody id="codesTableBody"><tr><td colspan="6" class="text-center">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+  <div class="modal fade" id="createModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title">Create Trial Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <div class="mb-3"><label class="form-label">Email</label><input type="email" class="form-control" id="createEmail"></div>
+          <div class="mb-3"><label class="form-label">Phone</label><input type="tel" class="form-control" id="createPhone"></div>
+          <div class="mb-3"><label class="form-label">Trial Days</label><input type="number" class="form-control" id="createTrialDays" value="14"></div>
+          <div class="mb-3"><label class="form-label">Expires In (days)</label><input type="number" class="form-control" id="createExpiresDays" value="30"></div>
+        </div>
+        <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-success" onclick="createCode()">Create</button></div>
+      </div>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    const token = '<%= token %>';
+    const basePath = window.APP_BASE_PATH;
+    let createModal;
+    document.addEventListener('DOMContentLoaded', () => { createModal = new bootstrap.Modal(document.getElementById('createModal')); loadTrialCodes(); });
+    async function loadTrialCodes() {
+      const res = await fetch(`${basePath}/admin/api/trial-codes?token=${token}`);
+      const data = await res.json();
+      if (data.success) { updateStats(data.stats || {}); renderCodes(data.codes || []); }
+    }
+    function updateStats(s) { document.getElementById('totalCodes').textContent = s.total||0; document.getElementById('pendingCodes').textContent = s.pending||0; document.getElementById('redeemedCodes').textContent = s.redeemed||0; document.getElementById('expiredCodes').textContent = s.expired||0; }
+    function renderCodes(codes) {
+      const tbody = document.getElementById('codesTableBody');
+      if (!codes.length) { tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No codes</td></tr>'; return; }
+      tbody.innerHTML = codes.map(c => `<tr><td><code>${c.code}</code></td><td>${c.email||c.phone||'-'}</td><td><span class="badge badge-${c.status.toLowerCase()}">${c.status}</span></td><td>${c.trialDays}</td><td>${new Date(c.expiresAt).toLocaleDateString()}</td><td>${c.status==='PENDING'?`<button class="btn btn-sm btn-outline-primary me-1" onclick="extendCode('${c.id}')"><i class="bi bi-calendar-plus"></i></button><button class="btn btn-sm btn-outline-danger" onclick="revokeCode('${c.id}')"><i class="bi bi-x-circle"></i></button>`:'-'}</td></tr>`).join('');
+    }
+    function showCreateModal() { createModal.show(); }
+    async function createCode() {
+      const res = await fetch(`${basePath}/admin/api/trial-codes?token=${token}`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ email: document.getElementById('createEmail').value, phone: document.getElementById('createPhone').value, trialDays: parseInt(document.getElementById('createTrialDays').value), expiresDays: parseInt(document.getElementById('createExpiresDays').value) }) });
+      const data = await res.json();
+      if (data.success) { createModal.hide(); loadTrialCodes(); alert('Code created: ' + data.code.code); }
+    }
+    async function extendCode(id) { const days = prompt('Extend by days?', '7'); if (!days) return; await fetch(`${basePath}/admin/api/trial-codes/${id}/extend?token=${token}`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ days: parseInt(days) }) }); loadTrialCodes(); }
+    async function revokeCode(id) { if (!confirm('Revoke?')) return; await fetch(`${basePath}/admin/api/trial-codes/${id}/revoke?token=${token}`, { method: 'POST' }); loadTrialCodes(); }
+  </script>
+</body>
+</html>
