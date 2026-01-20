@@ -1,4 +1,5 @@
 import { Router, Response } from 'express';
+import { logger } from '../utils/logger';
 import bcrypt from 'bcrypt';
 import { prisma } from '../db/prisma.js';
 import { requireAuth, AuthRequest } from '../middleware/boomerAuth.js';
@@ -46,7 +47,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
       devices,
     });
   } catch (error) {
-    console.error('Account API error:', error);
+    logger.error({ error: error instanceof Error ? error.message : String(error) }, 'Account API error:');
     res.status(500).json({ error: 'Failed to load account data' });
   }
 });
@@ -68,7 +69,7 @@ router.put('/name', async (req: AuthRequest, res: Response) => {
 
     res.json({ success: true, user });
   } catch (error) {
-    console.error('Update name error:', error);
+    logger.error({ error: error instanceof Error ? error.message : String(error) }, 'Update name error:');
     res.status(500).json({ error: 'Failed to update name' });
   }
 });
@@ -114,7 +115,7 @@ router.put('/email', async (req: AuthRequest, res: Response) => {
 
     res.json({ success: true, user: updatedUser });
   } catch (error) {
-    console.error('Update email error:', error);
+    logger.error({ error: error instanceof Error ? error.message : String(error) }, 'Update email error:');
     res.status(500).json({ error: 'Failed to update email' });
   }
 });
@@ -132,7 +133,7 @@ router.put('/phone', async (req: AuthRequest, res: Response) => {
 
     res.json({ success: true, user });
   } catch (error) {
-    console.error('Update phone error:', error);
+    logger.error({ error: error instanceof Error ? error.message : String(error) }, 'Update phone error:');
     res.status(500).json({ error: 'Failed to update phone' });
   }
 });
@@ -171,7 +172,7 @@ router.put('/password', async (req: AuthRequest, res: Response) => {
 
     res.json({ success: true, message: 'Password updated successfully' });
   } catch (error) {
-    console.error('Change password error:', error);
+    logger.error({ error: error instanceof Error ? error.message : String(error) }, 'Change password error:');
     res.status(500).json({ error: 'Failed to change password' });
   }
 });
@@ -186,7 +187,7 @@ router.get('/payment-methods', async (req: AuthRequest, res: Response) => {
 
     res.json({ paymentMethods });
   } catch (error) {
-    console.error('Get payment methods error:', error);
+    logger.error({ error: error instanceof Error ? error.message : String(error) }, 'Get payment methods error:');
     res.status(500).json({ error: 'Failed to get payment methods' });
   }
 });
@@ -228,7 +229,7 @@ router.post('/payment-methods', async (req: AuthRequest, res: Response) => {
 
     res.status(201).json({ success: true, paymentMethod });
   } catch (error) {
-    console.error('Add payment method error:', error);
+    logger.error({ error: error instanceof Error ? error.message : String(error) }, 'Add payment method error:');
     res.status(500).json({ error: 'Failed to add payment method' });
   }
 });
@@ -258,7 +259,7 @@ router.put('/payment-methods/:id/default', async (req: AuthRequest, res: Respons
 
     res.json({ success: true, paymentMethod: updated });
   } catch (error) {
-    console.error('Set default payment method error:', error);
+    logger.error({ error: error instanceof Error ? error.message : String(error) }, 'Set default payment method error:');
     res.status(500).json({ error: 'Failed to set default payment method' });
   }
 });
@@ -293,7 +294,7 @@ router.delete('/payment-methods/:id', async (req: AuthRequest, res: Response) =>
 
     res.json({ success: true, message: 'Payment method removed' });
   } catch (error) {
-    console.error('Delete payment method error:', error);
+    logger.error({ error: error instanceof Error ? error.message : String(error) }, 'Delete payment method error:');
     res.status(500).json({ error: 'Failed to remove payment method' });
   }
 });
@@ -313,7 +314,7 @@ router.get('/notifications', async (req: AuthRequest, res: Response) => {
 
     res.json({ preferences: prefs });
   } catch (error) {
-    console.error('Get notifications error:', error);
+    logger.error({ error: error instanceof Error ? error.message : String(error) }, 'Get notifications error:');
     res.status(500).json({ error: 'Failed to get notification preferences' });
   }
 });
@@ -345,7 +346,7 @@ router.put('/notifications', async (req: AuthRequest, res: Response) => {
 
     res.json({ success: true, preferences: prefs });
   } catch (error) {
-    console.error('Update notifications error:', error);
+    logger.error({ error: error instanceof Error ? error.message : String(error) }, 'Update notifications error:');
     res.status(500).json({ error: 'Failed to update notification preferences' });
   }
 });
@@ -366,7 +367,7 @@ router.get('/devices', async (req: AuthRequest, res: Response) => {
 
     res.json({ devices: devicesWithCurrent });
   } catch (error) {
-    console.error('Get devices error:', error);
+    logger.error({ error: error instanceof Error ? error.message : String(error) }, 'Get devices error:');
     res.status(500).json({ error: 'Failed to get devices' });
   }
 });
@@ -387,7 +388,7 @@ router.delete('/devices/:id', async (req: AuthRequest, res: Response) => {
     await prisma.userDevice.delete({ where: { id } });
     res.json({ success: true, message: 'Device signed out' });
   } catch (error) {
-    console.error('Delete device error:', error);
+    logger.error({ error: error instanceof Error ? error.message : String(error) }, 'Delete device error:');
     res.status(500).json({ error: 'Failed to sign out device' });
   }
 });
@@ -406,7 +407,7 @@ router.delete('/devices', async (req: AuthRequest, res: Response) => {
 
     res.json({ success: true, message: 'Signed out of all other devices' });
   } catch (error) {
-    console.error('Delete all devices error:', error);
+    logger.error({ error: error instanceof Error ? error.message : String(error) }, 'Delete all devices error:');
     res.status(500).json({ error: 'Failed to sign out devices' });
   }
 });
