@@ -4,8 +4,8 @@
 // ===========================================
 
 import Stripe from 'stripe';
-import { prisma } from '../../db/prisma';
-import logger from '../../utils/logger';
+import { prisma } from '../../db/prisma.js';
+import logger from '../../utils/logger.js';
 
 // Get Stripe configuration from database
 async function getStripeConfig() {

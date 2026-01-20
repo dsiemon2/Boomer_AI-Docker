@@ -707,8 +707,9 @@ If they miss doses frequently, gently encourage them to set up caregiver notific
       id: 'default',
       enabled: true,
       stripeEnabled: true,  // Stripe enabled by default
-      stripePublishableKey: '',
-      stripeTestMode: true,
+      stripePublishableKey: 'pk_test_YOUR_PUBLISHABLE_KEY',
+      stripeSecretKey: 'sk_test_YOUR_SECRET_KEY',
+      stripeTestMode: false,
       paypalEnabled: false,
       paypalClientId: '',
       paypalSandbox: true,

@@ -1,5 +1,5 @@
 import { Router, Response } from 'express';
-import { logger } from '../utils/logger';
+import { logger } from '../utils/logger.js';
 import bcrypt from 'bcrypt';
 import { prisma } from '../db/prisma.js';
 import { requireAuth, AuthRequest } from '../middleware/boomerAuth.js';

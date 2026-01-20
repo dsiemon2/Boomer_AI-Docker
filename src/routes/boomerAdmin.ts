@@ -2231,7 +2231,7 @@ router.get('/pricing', requireToken, async (req, res) => {
 
 router.get('/api/pricing', async (req, res) => {
   try {
-    let plans = [];
+    let plans: any[] = [];
     try {
       plans = await prisma.subscriptionPlan.findMany({
         where: { isActive: true },
