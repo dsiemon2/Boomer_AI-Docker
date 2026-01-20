@@ -1,4 +1,13 @@
-# BoomerAI - Claude Code Conventions
+# BoomerAI - Project Reference
+
+**Type:** Life Organization Platform for Seniors
+**Port:** 8088
+**URL Prefix:** /BoomerAI/
+**Status:** Active (Development)
+**Live URL:** https://www.lifestyleproai.com
+**Last Updated:** 2026-01-19
+
+---
 
 **READ THIS ENTIRE FILE before making ANY changes to this project.**
 
@@ -369,6 +378,46 @@ curl -s -o /dev/null -w "%{http_code}" http://localhost:8088/BoomerAI/auth/login
 - **Frontend:** EJS templates + Bootstrap 5 + Bootstrap Icons
 - **Real-time:** WebSockets (OpenAI Realtime API)
 - **Container:** Docker + nginx reverse proxy
+
+---
+
+## Logging
+
+Pino-based logging with pretty printing in development:
+
+```
+src/utils/logger.ts
+```
+
+### Features
+- **Pino Logger**: Fast, low-overhead JSON logging
+- **Pretty Printing**: Colorized output in development with pino-pretty
+- **Log Levels**: Configurable via LOG_LEVEL environment variable
+- **Timestamps**: Human-readable timestamps in development
+- **Production Mode**: Raw JSON output for log aggregation
+
+### Log Levels
+- `fatal` - Critical errors
+- `error` - Error conditions
+- `warn` - Warning conditions
+- `info` - Informational messages (default)
+- `debug` - Debug information
+- `trace` - Trace-level logging
+
+### Usage
+```typescript
+import logger from '../utils/logger';
+
+logger.info('Server started on port 8088');
+logger.error({ error: err.message }, 'Database connection failed');
+logger.debug({ userId, action }, 'User action logged');
+```
+
+### Configuration
+```bash
+# Environment variable
+LOG_LEVEL=debug  # Set log level (default: info)
+```
 
 ---
 
