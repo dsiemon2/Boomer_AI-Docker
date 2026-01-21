@@ -40,7 +40,18 @@ docker compose up -d
 
 ---
 
-## Database Schema
+## Database
+
+**Database:** PostgreSQL 15 (via Docker)
+**ORM:** Prisma
+
+### Connection Details (Docker)
+| Property | Value |
+|----------|-------|
+| Host | localhost |
+| Port | 5439 |
+| Database | boomerai_db |
+| User | boomerai |
 
 ### Key Models
 - `CalendarEvent` - Appointments and events

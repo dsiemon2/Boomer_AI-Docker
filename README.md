@@ -57,11 +57,20 @@ docker compose up -d
 | Layer | Technology |
 |-------|------------|
 | Backend | Node.js + Express + TypeScript |
-| Database | Prisma ORM + SQLite |
+| Database | Prisma ORM + PostgreSQL 15 |
 | Frontend | EJS templates + Bootstrap 5 |
 | Voice AI | OpenAI Realtime API |
 | SMS | Twilio (medication & appointment reminders) |
 | Container | Docker + nginx reverse proxy |
+
+### Ports
+
+| Service | Port | Description |
+|---------|------|-------------|
+| Nginx Proxy | 8088 | Main entry point |
+| PostgreSQL | 5439 | Database (exposed for debugging) |
+| App Server | 3000 | Internal - Main application |
+| Admin Server | 3001 | Internal - Admin panel |
 
 ## Project Structure
 
@@ -104,9 +113,12 @@ docker compose up -d
 docker logs boomerai_app
 docker logs boomerai_admin
 
-# Force reseed database
-docker compose exec app sh -c "rm -f /app/data/app.db && npx prisma db push --skip-generate && npx prisma db seed"
-docker compose restart admin
+# Force reseed database (PostgreSQL)
+docker compose down -v
+docker compose up -d
+
+# Connect to PostgreSQL directly
+docker exec -it boomerai_postgres psql -U boomerai -d boomerai_db
 ```
 
 ## Environment Variables
@@ -117,7 +129,7 @@ Set in `docker-compose.yml`:
 OPENAI_API_KEY=sk-...       # Required: OpenAI API key
 PORT=3000                   # Internal app port
 ADMIN_PORT=3001             # Internal admin port
-DATABASE_URL=file:/app/data/app.db
+DATABASE_URL=postgresql://boomerai:boomerai_password@postgres:5432/boomerai_db
 ADMIN_TOKEN=admin           # Admin panel token
 
 # Twilio SMS (optional)
@@ -125,6 +137,13 @@ TWILIO_ACCOUNT_SID=your-twilio-sid
 TWILIO_AUTH_TOKEN=your-twilio-token
 TWILIO_PHONE_NUMBER=+1234567890
 ```
+
+### PostgreSQL Connection Details (Docker)
+- **Host:** localhost
+- **Port:** 5439
+- **Database:** boomerai_db
+- **User:** boomerai
+- **Password:** boomerai_password
 
 ## Color Theme
 
