@@ -374,7 +374,7 @@ curl -s -o /dev/null -w "%{http_code}" http://localhost:8088/BoomerAI/auth/login
 ## Tech Stack
 
 - **Backend:** Node.js + Express + TypeScript
-- **Database:** Prisma + SQLite
+- **Database:** Prisma + PostgreSQL
 - **Frontend:** EJS templates + Bootstrap 5 + Bootstrap Icons
 - **Real-time:** WebSockets (OpenAI Realtime API)
 - **Container:** Docker + nginx reverse proxy

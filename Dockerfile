@@ -1,11 +1,9 @@
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
 
 WORKDIR /app
 
-# Use alternative mirrors and install OpenSSL for Prisma
-RUN echo "https://mirror.csclub.uwaterloo.ca/alpine/v3.20/main" > /etc/apk/repositories && \
-    echo "https://mirror.csclub.uwaterloo.ca/alpine/v3.20/community" >> /etc/apk/repositories && \
-    apk add --no-cache openssl libc6-compat python3 make g++
+# Install OpenSSL for Prisma and build tools for bcrypt
+RUN apt-get update && apt-get install -y openssl python3 make g++ && rm -rf /var/lib/apt/lists/*
 
 # Copy package files
 COPY package*.json ./
@@ -24,14 +22,12 @@ COPY . .
 RUN npm run build
 
 # Production stage
-FROM node:20-alpine
+FROM node:20-slim
 
 WORKDIR /app
 
-# Use alternative mirrors and install OpenSSL for Prisma and build tools for bcrypt
-RUN echo "https://mirror.csclub.uwaterloo.ca/alpine/v3.20/main" > /etc/apk/repositories && \
-    echo "https://mirror.csclub.uwaterloo.ca/alpine/v3.20/community" >> /etc/apk/repositories && \
-    apk add --no-cache openssl wget python3 make g++ libc6-compat
+# Install OpenSSL for Prisma, wget for health checks, PostgreSQL client, and build tools for bcrypt
+RUN apt-get update && apt-get install -y openssl wget postgresql-client python3 make g++ && rm -rf /var/lib/apt/lists/*
 
 # Copy package files
 COPY package*.json ./
@@ -54,9 +50,6 @@ COPY --from=builder /app/public ./public
 # Copy entrypoint script
 COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
-
-# Create data directory
-RUN mkdir -p /app/data
 
 # Expose ports
 EXPOSE 3000 3001
